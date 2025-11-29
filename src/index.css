@@ -1,0 +1,9 @@
+/* Importações primeiro! */
+@import url('https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.font-headline { font-family: 'Mountains of Christmas', cursive; }
+.font-body { font-family: 'Outfit', sans-serif; }
