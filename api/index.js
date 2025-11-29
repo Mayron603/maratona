@@ -34,6 +34,7 @@ const GoalSchema = new mongoose.Schema({
   status: { type: String, default: 'nao_iniciado' },
   completed_date: String,
   created_by: String,
+  created_by_name: String,
   created_at: { type: Date, default: Date.now }
 });
 const Goal = mongoose.models.Goal || mongoose.model('Goal', GoalSchema);
@@ -142,7 +143,7 @@ app.get('/api/marathons', async (req, res) => {
 });
 
 app.post('/api/marathons', authenticateToken, async (req, res) => {
-  const marathon = await Marathon.create({ ...req.body, created_by: req.user.email });
+  const marathon = await Marathon.create({ ...req.body, created_by: req.user.email, created_by_name: req.user.name });
   res.json(marathon);
 });
 

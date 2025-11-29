@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Film, Book, Calendar, Star, Trash2, Play, Edit } from 'lucide-react'; // Importei Edit
+import { Film, Book, Calendar, Star, Trash2, Play, Edit, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
@@ -14,13 +14,20 @@ const typeConfig = {
   personalizada: { icon: Star, label: 'Personalizada', color: 'bg-yellow-100 text-yellow-700' }
 };
 
-export default function MarathonCard({ marathon, onDelete, onEdit }) { // Recebe onEdit
+export default function MarathonCard({ marathon, onDelete, onEdit }) {
   const TypeIcon = typeConfig[marathon.type]?.icon || Star;
   
   const totalTasks = marathon.rounds?.reduce((acc, round) => acc + (round.tasks?.length || 0), 0) || 0;
   const completedTasks = marathon.rounds?.reduce((acc, round) => 
     acc + (round.tasks?.filter(t => t.completed)?.length || 0), 0) || 0;
   const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+  // Lógica para pegar o primeiro nome
+  const getCreatorName = () => {
+    if (marathon.created_by_name) return marathon.created_by_name.split(' ')[0];
+    if (marathon.created_by) return marathon.created_by.split('@')[0]; // Fallback para parte do email
+    return 'Admin';
+  };
 
   return (
     <Card className="group hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-green-50 border-2 border-green-100 hover:border-green-300 overflow-hidden">
@@ -40,25 +47,14 @@ export default function MarathonCard({ marathon, onDelete, onEdit }) { // Recebe
             </div>
           </div>
           
-          {/* Botões de Ação (só aparecem se as funções existirem) */}
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {onEdit && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 hover:bg-yellow-50"
-                onClick={() => onEdit(marathon)}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-yellow-50" onClick={() => onEdit(marathon)}>
                 <Edit className="w-4 h-4 text-yellow-600" />
               </Button>
             )}
             {onDelete && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 hover:bg-red-50"
-                onClick={() => onDelete(marathon.id)}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-50" onClick={() => onDelete(marathon.id)}>
                 <Trash2 className="w-4 h-4 text-red-400" />
               </Button>
             )}
@@ -79,9 +75,13 @@ export default function MarathonCard({ marathon, onDelete, onEdit }) { // Recebe
           <Progress value={progress} className="h-2 bg-green-100" />
 
           <div className="flex items-center justify-between pt-2">
-            <div className="text-xs text-gray-400">
-              {marathon.rounds?.length || 0} rounds
+            
+            {/* --- AQUI ESTÁ O NOME DO CRIADOR --- */}
+            <div className="flex items-center gap-1 text-xs text-gray-400 bg-white/50 px-2 py-1 rounded-full">
+              <User className="w-3 h-3" />
+              <span>Por: {getCreatorName()}</span>
             </div>
+
             <Link to={createPageUrl(`MarathonDetail?id=${marathon.id}`)}>
               <Button size="sm" className="bg-green-600 hover:bg-green-700">
                 <Play className="w-4 h-4 mr-1" /> Continuar
