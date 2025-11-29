@@ -113,7 +113,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="text-center py-8 text-gray-500 text-sm">
-        <p>Feito com ❤️ para um Natal mais organizado e divertido</p>
+        <p>Feito com ❤️ por Mayron</p>
         <p className="mt-1">🎄 Boas Festas! 🎄</p>
       </footer>
     </div>
