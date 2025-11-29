@@ -1,9 +1,11 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+import dotenv from 'dotenv';
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
+dotenv.config();
 
 const app = express();
 app.use(express.json());
@@ -14,14 +16,16 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.error('Erro no Mongo:', err));
 
 // --- MODELOS ---
-const User = mongoose.model('User', new mongoose.Schema({
+const UserSchema = new mongoose.Schema({
   name: String,
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
   role: { type: String, default: 'participant' }
-}));
+});
+// Evita erro de re-compilação do modelo na Vercel
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
-const Goal = mongoose.model('Goal', new mongoose.Schema({
+const GoalSchema = new mongoose.Schema({
   title: String,
   description: String,
   category: String,
@@ -31,9 +35,10 @@ const Goal = mongoose.model('Goal', new mongoose.Schema({
   completed_date: String,
   created_by: String,
   created_at: { type: Date, default: Date.now }
-}));
+});
+const Goal = mongoose.models.Goal || mongoose.model('Goal', GoalSchema);
 
-const Marathon = mongoose.model('Marathon', new mongoose.Schema({
+const MarathonSchema = new mongoose.Schema({
   name: String,
   description: String,
   type: String,
@@ -45,31 +50,32 @@ const Marathon = mongoose.model('Marathon', new mongoose.Schema({
     tasks: [{
       id: String,
       text: String
-      // Removemos 'completed' daqui pois agora fica no progresso do usuário
     }]
   }],
   created_by: String,
   created_at: { type: Date, default: Date.now }
-}));
+});
+const Marathon = mongoose.models.Marathon || mongoose.model('Marathon', MarathonSchema);
 
-// NOVO: Tabela para salvar o progresso de cada usuário individualmente
-const MarathonProgress = mongoose.model('MarathonProgress', new mongoose.Schema({
+const MarathonProgressSchema = new mongoose.Schema({
   userId: String,
   marathonId: String,
   tasks: [{
     taskId: String,
     completed: Boolean,
-    note: String // Aqui salvamos o comentário do livro!
+    note: String
   }]
-}));
+});
+const MarathonProgress = mongoose.models.MarathonProgress || mongoose.model('MarathonProgress', MarathonProgressSchema);
 
-const Settings = mongoose.model('Settings', new mongoose.Schema({
+const SettingsSchema = new mongoose.Schema({
   snow_enabled: Boolean,
   lights_enabled: Boolean,
   music_enabled: Boolean,
   music_volume: { type: Number, default: 0.5 },
   theme: String
-}));
+});
+const Settings = mongoose.models.Settings || mongoose.model('Settings', SettingsSchema);
 
 // --- MIDDLEWARE ---
 const authenticateToken = (req, res, next) => {
@@ -113,7 +119,6 @@ app.get('/api/me', authenticateToken, (req, res) => {
 
 // --- ROTAS METAS ---
 app.get('/api/goals', authenticateToken, async (req, res) => {
-  // Mostra apenas metas do próprio usuário
   const goals = await Goal.find({ created_by: req.user.email }).sort({ created_at: -1 });
   res.json(goals);
 });
@@ -146,8 +151,7 @@ app.delete('/api/marathons/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// --- NOVO: ROTAS DE PROGRESSO DA MARATONA ---
-// Pega o progresso do usuário em uma maratona específica
+// --- PROGRESSO DA MARATONA ---
 app.get('/api/marathons/:id/progress', authenticateToken, async (req, res) => {
   let progress = await MarathonProgress.findOne({ userId: req.user._id, marathonId: req.params.id });
   if (!progress) {
@@ -156,7 +160,6 @@ app.get('/api/marathons/:id/progress', authenticateToken, async (req, res) => {
   res.json(progress);
 });
 
-// Atualiza uma tarefa (check ou nota)
 app.post('/api/marathons/:id/task', authenticateToken, async (req, res) => {
   const { taskId, completed, note } = req.body;
   const marathonId = req.params.id;
@@ -169,11 +172,9 @@ app.post('/api/marathons/:id/task', authenticateToken, async (req, res) => {
 
   const taskIndex = progress.tasks.findIndex(t => t.taskId === taskId);
   if (taskIndex > -1) {
-    // Atualiza existente
     if (completed !== undefined) progress.tasks[taskIndex].completed = completed;
     if (note !== undefined) progress.tasks[taskIndex].note = note;
   } else {
-    // Cria novo registro de tarefa
     progress.tasks.push({ taskId, completed: completed || false, note: note || '' });
   }
 
@@ -200,10 +201,15 @@ app.put('/api/settings/:id', async (req, res) => {
     }
 });
 
-module.exports = app;
+// --- EXPORTAÇÃO PARA VERCEL (MUDANÇA CRUCIAL) ---
+export default app;
 
-// Só roda o servidor localmente se não estiver na Vercel
-if (require.main === module) {
+// Só roda localmente se o arquivo for chamado diretamente
+// (Essa verificação muda um pouco em ES Modules, mas para Vercel o export default basta)
+if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+  // Verifica se não estamos no ambiente serverless antes de tentar ouvir a porta
+  // Para simplificar e evitar erros no Vercel, podemos remover o listen automático
+  // ou deixá-lo apenas para o seu comando 'npm run server' local.
+  // app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
 }
