@@ -92,6 +92,28 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// --- PROGRESSO DA MARATONA ---
+
+// ROTA NOVA: Pega todo o progresso do usuário (para saber em quais ele está inscrito)
+app.get('/api/my-progress', authenticateToken, async (req, res) => {
+  const allProgress = await MarathonProgress.find({ userId: req.user._id });
+  res.json(allProgress);
+});
+
+// ROTA NOVA: Inscrever-se em uma maratona
+app.post('/api/marathons/:id/subscribe', authenticateToken, async (req, res) => {
+  const marathonId = req.params.id;
+  const userId = req.user._id;
+
+  // Verifica se já existe
+  const existing = await MarathonProgress.findOne({ userId, marathonId });
+  if (existing) return res.json(existing);
+
+  // Cria a inscrição vazia
+  const newProgress = await MarathonProgress.create({ userId, marathonId, tasks: [] });
+  res.json(newProgress);
+});
+
 // --- ROTAS AUTH ---
 app.post('/api/register', async (req, res) => {
   try {

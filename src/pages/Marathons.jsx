@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Plus, Trophy, Sparkles, Lock, Film, Book, Calendar } from 'lucide-react';
+import { Plus, Trophy, Sparkles, Lock } from 'lucide-react';
 import MarathonCard from '@/components/marathon/MarathonCard';
 import MarathonForm from '@/components/marathon/MarathonForm';
 
@@ -12,16 +12,25 @@ export default function Marathons() {
   const [editingMarathon, setEditingMarathon] = useState(null); // Estado para edição
   const queryClient = useQueryClient();
 
+  // 1. Busca usuário atual
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
     queryFn: () => base44.auth.me(),
   });
 
+  // 2. Busca lista de maratonas
   const { data: marathons = [], isLoading } = useQuery({
     queryKey: ['marathons'],
     queryFn: () => base44.entities.Marathon.list(),
   });
 
+  // 3. NOVO: Busca lista de inscrições do usuário para saber qual botão mostrar
+  const { data: myProgressList = [] } = useQuery({
+    queryKey: ['my-progress'],
+    queryFn: () => base44.entities.Marathon.getMyProgressList(),
+  });
+
+  // Mutações (Criar, Atualizar, Deletar, Inscrever)
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Marathon.create(data),
     onSuccess: () => {
@@ -31,13 +40,12 @@ export default function Marathons() {
     },
   });
 
-  // Mutação para Atualizar
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Marathon.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['marathons'] });
       setShowForm(false);
-      setEditingMarathon(null); // Limpa edição
+      setEditingMarathon(null);
       alert('Maratona atualizada com sucesso!');
     },
   });
@@ -49,6 +57,16 @@ export default function Marathons() {
     },
   });
 
+  // NOVO: Mutação para se inscrever
+  const subscribeMutation = useMutation({
+    mutationFn: (id) => base44.entities.Marathon.subscribe(id),
+    onSuccess: () => {
+      // Atualiza a lista de progresso para o botão mudar na hora
+      queryClient.invalidateQueries({ queryKey: ['my-progress'] });
+    },
+  });
+
+  // Handlers (Funções de clique)
   const handleSubmit = (data) => {
     if (editingMarathon) {
       updateMutation.mutate({ id: editingMarathon.id, data });
@@ -64,6 +82,11 @@ export default function Marathons() {
 
   const handleDelete = (id) => {
     if (confirm('Tem certeza que deseja excluir esta maratona?')) deleteMutation.mutate(id);
+  };
+
+  // NOVO: Handler de inscrição
+  const handleSubscribe = (id) => {
+    subscribeMutation.mutate(id);
   };
 
   const isAdmin = currentUser?.role === 'admin';
@@ -121,6 +144,7 @@ export default function Marathons() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-green-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
+        {/* Cabeçalho e Botão de Criar (Admin) */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800 flex items-center gap-3">
@@ -144,7 +168,7 @@ export default function Marathons() {
           )}
         </div>
 
-        {/* Templates */}
+        {/* Templates (Apenas Admin) */}
         {isAdmin && (
           <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-6 mb-8 border-2 border-yellow-100">
             <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -176,21 +200,29 @@ export default function Marathons() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {marathons.map(marathon => (
-              <MarathonCard 
-                key={marathon.id} 
-                marathon={marathon} 
-                onDelete={isAdmin ? handleDelete : null} 
-                onEdit={isAdmin ? handleEdit : null} // Passando a função de editar
-              />
-            ))}
+            {marathons.map(marathon => {
+              // Verifica se o usuário já está inscrito nesta maratona
+              const userProgress = myProgressList.find(p => p.marathonId === marathon.id);
+              
+              return (
+                <MarathonCard 
+                  key={marathon.id} 
+                  marathon={marathon} 
+                  userProgress={userProgress} // Passa o progresso (ou undefined)
+                  onDelete={isAdmin ? handleDelete : null} 
+                  onEdit={isAdmin ? handleEdit : null}
+                  onSubscribe={handleSubscribe} // Passa a função de inscrição
+                />
+              );
+            })}
           </div>
         )}
 
+        {/* Formulário de Criação/Edição */}
         <Dialog open={showForm} onOpenChange={setShowForm}>
           <DialogContent className="max-w-2xl p-0 border-0 bg-transparent max-h-[90vh]">
             <MarathonForm 
-              marathon={editingMarathon} // Passa os dados da maratona para edição
+              marathon={editingMarathon} 
               onSubmit={handleSubmit} 
               onCancel={() => { setShowForm(false); setEditingMarathon(null); }} 
             />

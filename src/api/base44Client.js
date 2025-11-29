@@ -48,6 +48,10 @@ export const base44 = {
       list: async () => normalize(await fetchAPI('/marathons')),
       create: async (data) => normalize(await fetchAPI('/marathons', { method: 'POST', body: JSON.stringify(data) })),
       delete: async (id) => fetchAPI(`/marathons/${id}`, { method: 'DELETE' }),
+
+      // --- NOVAS FUNÇÕES ---
+      getMyProgressList: async () => fetchAPI('/my-progress'), // Pega todas as inscrições
+      subscribe: async (id) => fetchAPI(`/marathons/${id}/subscribe`, { method: 'POST' }),
       
       // Funções novas para progresso
       getProgress: async (marathonId) => fetchAPI(`/marathons/${marathonId}/progress`),
