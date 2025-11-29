@@ -23,15 +23,15 @@ export default function Home() {
         <div className="relative max-w-6xl mx-auto px-4 pt-16 pb-24 text-center">
           <div className="inline-flex items-center gap-2 bg-red-100 text-red-700 px-4 py-2 rounded-full mb-6 animate-bounce">
             <Sparkles className="w-4 h-4" />
-            <span className="text-sm font-medium">Edição Especial de Natal 2024</span>
+            <span className="text-sm font-medium">Natal 2025</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold mb-6">
             <span className="bg-gradient-to-r from-red-600 via-green-600 to-red-600 bg-clip-text text-transparent">
-              Maratoninha
+              Missão
             </span>
             <br />
-            <span className="text-gray-800">de Natal</span>
+            <span className="text-gray-800">Natal</span>
             <span className="inline-block ml-3 animate-pulse">🎄</span>
           </h1>
 

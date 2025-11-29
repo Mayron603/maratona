@@ -108,7 +108,7 @@ export default function Layout({ children, currentPageName }) {
                 <TreePine className="w-6 h-6 text-white" />
               </div>
               <div className="hidden sm:block">
-                <span className="font-bold text-gray-800">Maratoninha</span>
+                <span className="font-bold text-gray-800">Missão</span>
                 <span className="text-xs text-red-600 block -mt-1">de Natal 🎄</span>
               </div>
             </Link>
