@@ -9,6 +9,7 @@ import MarathonForm from '@/components/marathon/MarathonForm';
 
 export default function Marathons() {
   const [showForm, setShowForm] = useState(false);
+  const [editingMarathon, setEditingMarathon] = useState(null); // Estado para edição
   const queryClient = useQueryClient();
 
   const { data: currentUser } = useQuery({
@@ -30,6 +31,17 @@ export default function Marathons() {
     },
   });
 
+  // Mutação para Atualizar
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Marathon.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marathons'] });
+      setShowForm(false);
+      setEditingMarathon(null); // Limpa edição
+      alert('Maratona atualizada com sucesso!');
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Marathon.delete(id),
     onSuccess: () => {
@@ -37,7 +49,18 @@ export default function Marathons() {
     },
   });
 
-  const handleSubmit = (data) => createMutation.mutate(data);
+  const handleSubmit = (data) => {
+    if (editingMarathon) {
+      updateMutation.mutate({ id: editingMarathon.id, data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const handleEdit = (marathon) => {
+    setEditingMarathon(marathon);
+    setShowForm(true);
+  };
 
   const handleDelete = (id) => {
     if (confirm('Tem certeza que deseja excluir esta maratona?')) deleteMutation.mutate(id);
@@ -108,7 +131,10 @@ export default function Marathons() {
           </div>
           
           {isAdmin ? (
-            <Button onClick={() => setShowForm(true)} className="mt-4 md:mt-0 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800">
+            <Button 
+              onClick={() => { setEditingMarathon(null); setShowForm(true); }} 
+              className="mt-4 md:mt-0 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+            >
               <Plus className="w-4 h-4 mr-2" /> Nova Maratona
             </Button>
           ) : (
@@ -151,14 +177,23 @@ export default function Marathons() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {marathons.map(marathon => (
-              <MarathonCard key={marathon.id} marathon={marathon} onDelete={isAdmin ? handleDelete : null} />
+              <MarathonCard 
+                key={marathon.id} 
+                marathon={marathon} 
+                onDelete={isAdmin ? handleDelete : null} 
+                onEdit={isAdmin ? handleEdit : null} // Passando a função de editar
+              />
             ))}
           </div>
         )}
 
         <Dialog open={showForm} onOpenChange={setShowForm}>
           <DialogContent className="max-w-2xl p-0 border-0 bg-transparent max-h-[90vh]">
-            <MarathonForm onSubmit={handleSubmit} onCancel={() => setShowForm(false)} />
+            <MarathonForm 
+              marathon={editingMarathon} // Passa os dados da maratona para edição
+              onSubmit={handleSubmit} 
+              onCancel={() => { setShowForm(false); setEditingMarathon(null); }} 
+            />
           </DialogContent>
         </Dialog>
       </div>

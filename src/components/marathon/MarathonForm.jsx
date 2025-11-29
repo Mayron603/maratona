@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, Plus, Trash2, Sparkles } from 'lucide-react';
+import { X, Plus, Trash2, Sparkles, Save } from 'lucide-react';
 
 const marathonTypes = [
   { value: 'filmes_natal', label: '🎬 Maratona de Filmes de Natal' },
@@ -14,7 +14,8 @@ const marathonTypes = [
   { value: 'personalizada', label: '⭐ Personalizada' }
 ];
 
-export default function MarathonForm({ onSubmit, onCancel }) {
+// Recebe a prop 'marathon' (opcional) para edição
+export default function MarathonForm({ marathon, onSubmit, onCancel }) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -23,6 +24,21 @@ export default function MarathonForm({ onSubmit, onCancel }) {
     end_date: '',
     rounds: [{ id: '1', title: 'Round 1', tasks: [{ id: '1-1', text: '', completed: false }] }]
   });
+
+  // Preenche o formulário se estiver editando
+  useEffect(() => {
+    if (marathon) {
+      setFormData({
+        name: marathon.name || '',
+        description: marathon.description || '',
+        type: marathon.type || 'personalizada',
+        start_date: marathon.start_date || '',
+        end_date: marathon.end_date || '',
+        // Garante que rounds e tasks existam para não quebrar
+        rounds: marathon.rounds?.length ? marathon.rounds : [{ id: '1', title: 'Round 1', tasks: [{ id: '1-1', text: '', completed: false }] }]
+      });
+    }
+  }, [marathon]);
 
   const addRound = () => {
     const newRoundId = String(formData.rounds.length + 1);
@@ -79,7 +95,7 @@ export default function MarathonForm({ onSubmit, onCancel }) {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-green-700">
             <Sparkles className="w-5 h-5" />
-            Nova Maratona Natalina
+            {marathon ? 'Editar Maratona' : 'Nova Maratona Natalina'}
           </CardTitle>
           <Button variant="ghost" size="icon" onClick={onCancel}>
             <X className="w-5 h-5" />
@@ -200,7 +216,7 @@ export default function MarathonForm({ onSubmit, onCancel }) {
               Cancelar
             </Button>
             <Button type="submit" className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800">
-              Criar Maratona 🎁
+              {marathon ? <><Save className="w-4 h-4 mr-2" /> Salvar Alterações</> : 'Criar Maratona 🎁'}
             </Button>
           </div>
         </form>

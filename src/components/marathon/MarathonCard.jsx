@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Film, Book, Calendar, Star, Trash2, Play } from 'lucide-react';
+import { Film, Book, Calendar, Star, Trash2, Play, Edit } from 'lucide-react'; // Importei Edit
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
@@ -14,7 +14,7 @@ const typeConfig = {
   personalizada: { icon: Star, label: 'Personalizada', color: 'bg-yellow-100 text-yellow-700' }
 };
 
-export default function MarathonCard({ marathon, onDelete }) {
+export default function MarathonCard({ marathon, onDelete, onEdit }) { // Recebe onEdit
   const TypeIcon = typeConfig[marathon.type]?.icon || Star;
   
   const totalTasks = marathon.rounds?.reduce((acc, round) => acc + (round.tasks?.length || 0), 0) || 0;
@@ -39,14 +39,30 @@ export default function MarathonCard({ marathon, onDelete }) {
               </Badge>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={() => onDelete(marathon.id)}
-          >
-            <Trash2 className="w-4 h-4 text-red-400" />
-          </Button>
+          
+          {/* Botões de Ação (só aparecem se as funções existirem) */}
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {onEdit && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 hover:bg-yellow-50"
+                onClick={() => onEdit(marathon)}
+              >
+                <Edit className="w-4 h-4 text-yellow-600" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 hover:bg-red-50"
+                onClick={() => onDelete(marathon.id)}
+              >
+                <Trash2 className="w-4 h-4 text-red-400" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
 
