@@ -90,7 +90,10 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
       alert("Foto de perfil atualizada!");
     },
-    onError: () => alert("Erro ao atualizar foto. Tente uma imagem menor (max 10mb).")
+    onError: (error) => {
+      console.error(error); // Mostra o erro no console do navegador (F12)
+      alert("Erro real: " + error.message);
+    }
   });
 
   // --- MUTAÇÃO: Resetar ---
