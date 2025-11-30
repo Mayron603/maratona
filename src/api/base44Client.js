@@ -35,14 +35,21 @@ export const base44 = {
     },
     register: async (name, email, password) => fetchAPI('/register', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
     me: async () => { try { return await fetchAPI('/me'); } catch { return null; } },
-    logout: async () => { localStorage.removeItem('token'); window.location.href = '/login'; }
+    logout: async () => { localStorage.removeItem('token'); window.location.href = '/login'; },
+    
+    // --- CORREÇÃO: A função updateProfile deve ficar AQUI, dentro de auth ---
+    updateProfile: async (data) => {
+      return fetchAPI('/me', { 
+        method: 'PUT', 
+        body: JSON.stringify(data) 
+      });
+    },
+    // -----------------------------------------------------------------------
   },
   
-  // --- ADICIONADO PARA O RANKING ---
   users: {
     list: async () => normalize(await fetchAPI('/users')),
   },
-  // --------------------------------
 
   entities: {
     Goal: {
@@ -56,20 +63,11 @@ export const base44 = {
       create: async (data) => normalize(await fetchAPI('/marathons', { method: 'POST', body: JSON.stringify(data) })),
       delete: async (id) => fetchAPI(`/marathons/${id}`, { method: 'DELETE' }),
 
-      // --- NOVAS FUNÇÕES ---
-      getMyProgressList: async () => fetchAPI('/my-progress'), // Pega todas as inscrições
+      getMyProgressList: async () => fetchAPI('/my-progress'),
       subscribe: async (id) => fetchAPI(`/marathons/${id}/subscribe`, { method: 'POST' }),
       
-      // ADICIONADO PARA O RANKING:
       getAllProgress: async () => fetchAPI('/progress/all'),
-      updateProfile: async (data) => {
-      return fetchAPI('/me', { 
-        method: 'PUT', 
-        body: JSON.stringify(data) 
-      });
-    },
       
-      // Funções de progresso individual
       getProgress: async (marathonId) => fetchAPI(`/marathons/${marathonId}/progress`),
       updateTask: async (marathonId, taskId, completed, note) => 
         fetchAPI(`/marathons/${marathonId}/task`, { 
@@ -84,9 +82,7 @@ export const base44 = {
       }
     },
     Settings: {
-      // Adicionamos normalize(...) aqui para converter _id em id
       list: async () => normalize(await fetchAPI('/settings')),
-      
       create: async (data) => fetchAPI('/settings', { method: 'POST', body: JSON.stringify(data) }),
       update: async (id, data) => fetchAPI(`/settings/${id}`, { method: 'PUT', body: JSON.stringify(data) })
     }
