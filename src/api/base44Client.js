@@ -62,6 +62,12 @@ export const base44 = {
       
       // ADICIONADO PARA O RANKING:
       getAllProgress: async () => fetchAPI('/progress/all'),
+      updateProfile: async (data) => {
+      return fetchAPI('/me', { 
+        method: 'PUT', 
+        body: JSON.stringify(data) 
+      });
+    },
       
       // Funções de progresso individual
       getProgress: async (marathonId) => fetchAPI(`/marathons/${marathonId}/progress`),

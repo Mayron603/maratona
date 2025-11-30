@@ -20,7 +20,8 @@ const UserSchema = new mongoose.Schema({
   name: String,
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
-  role: { type: String, default: 'participant' }
+  role: { type: String, default: 'participant' },
+  avatar: String
 });
 // Evita erro de re-compilação do modelo na Vercel
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
@@ -151,6 +152,27 @@ app.post('/api/login', async (req, res) => {
 
 app.get('/api/me', authenticateToken, (req, res) => {
   res.json({ id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role });
+});
+
+// Atualizar dados do próprio usuário (Avatar e Nome)
+app.put('/api/me', authenticateToken, async (req, res) => {
+  try {
+    const { name, avatar } = req.body;
+    const updateData = {};
+    
+    if (name) updateData.name = name;
+    if (avatar) updateData.avatar = avatar;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id, 
+      updateData, 
+      { new: true }
+    ).select('-password'); // Não retorna a senha
+
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao atualizar perfil' });
+  }
 });
 
 // --- ROTAS METAS ---
