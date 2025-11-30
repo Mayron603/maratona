@@ -10,6 +10,8 @@ import StatsCard from '@/components/dashboard/StatsCard';
 import ProgressCircle from '@/components/ui/ProgressCircle';
 import GoalCard from '@/components/goals/GoalCard';
 import ChristmasCountdown from '@/components/christmas/ChristmasCountdown';
+// ADICIONEI ESTE IMPORT:
+import { isToday } from 'date-fns'; 
 
 export default function Dashboard() {
   const { data: goals = [], refetch: refetchGoals } = useQuery({
@@ -31,11 +33,15 @@ export default function Dashboard() {
 
   const progress = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
 
+  // --- CORREÇÃO AQUI ---
   const todayGoals = goals.filter(goal => {
     if (!goal.due_date) return false;
-    const today = new Date().toISOString().split('T')[0];
-    return goal.due_date === today;
+    // Adicionamos T00:00:00 para garantir que a data seja interpretada 
+    // como meia-noite no horário LOCAL, e não UTC.
+    const goalDate = new Date(goal.due_date + 'T00:00:00');
+    return isToday(goalDate);
   });
+  // ---------------------
 
   const handleStatusChange = async (goalId, newStatus) => {
     await base44.entities.Goal.update(goalId, { 
@@ -115,7 +121,7 @@ export default function Dashboard() {
                       <button
                         onClick={() => handleStatusChange(goal.id, goal.status === 'concluido' ? 'nao_iniciado' : 'concluido')}
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                          goal.status === 'concluido' ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-green-400'
+                          goal.status === 'concluido' ? 'bg-green-50 border-green-500' : 'border-gray-300 hover:border-green-400'
                         }`}
                       >
                         {goal.status === 'concluido' && <CheckCircle2 className="w-4 h-4 text-white" />}
