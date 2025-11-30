@@ -10,8 +10,7 @@ import StatsCard from '@/components/dashboard/StatsCard';
 import ProgressCircle from '@/components/ui/ProgressCircle';
 import GoalCard from '@/components/goals/GoalCard';
 import ChristmasCountdown from '@/components/christmas/ChristmasCountdown';
-// ADICIONEI ESTE IMPORT:
-import { isToday } from 'date-fns'; 
+import { isToday } from 'date-fns';
 
 export default function Dashboard() {
   const { data: goals = [], refetch: refetchGoals } = useQuery({
@@ -24,6 +23,12 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Marathon.list('-created_date'),
   });
 
+  // CORREÇÃO 1: Buscar o progresso do usuário
+  const { data: myProgressList = [] } = useQuery({
+    queryKey: ['my-progress'],
+    queryFn: () => base44.entities.Marathon.getMyProgressList(),
+  });
+
   const stats = {
     total: goals.length,
     completed: goals.filter(g => g.status === 'concluido').length,
@@ -33,15 +38,11 @@ export default function Dashboard() {
 
   const progress = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
 
-  // --- CORREÇÃO AQUI ---
   const todayGoals = goals.filter(goal => {
     if (!goal.due_date) return false;
-    // Adicionamos T00:00:00 para garantir que a data seja interpretada 
-    // como meia-noite no horário LOCAL, e não UTC.
     const goalDate = new Date(goal.due_date + 'T00:00:00');
     return isToday(goalDate);
   });
-  // ---------------------
 
   const handleStatusChange = async (goalId, newStatus) => {
     await base44.entities.Goal.update(goalId, { 
@@ -198,9 +199,15 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-3">
                   {marathons.slice(0, 3).map(marathon => {
+                    // CORREÇÃO 2: Encontrar o progresso específico desta maratona
+                    const userProgress = myProgressList.find(p => p.marathonId === marathon.id);
+                    
                     const totalTasks = marathon.rounds?.reduce((acc, r) => acc + (r.tasks?.length || 0), 0) || 0;
-                    const completedTasks = marathon.rounds?.reduce((acc, r) => 
-                      acc + (r.tasks?.filter(t => t.completed)?.length || 0), 0) || 0;
+                    
+                    // CORREÇÃO 3: Calcular tarefas concluídas usando o progresso do usuário, não o template
+                    const completedTasks = userProgress 
+                      ? userProgress.tasks?.filter(t => t.completed).length || 0 
+                      : 0;
                     
                     return (
                       <Link key={marathon.id} to={createPageUrl(`MarathonDetail?id=${marathon.id}`)}>
