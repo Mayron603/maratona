@@ -73,7 +73,9 @@ export default function Calendar() {
 
   const selectedDayGoals = goals.filter(goal => {
     if (!goal.due_date) return false;
-    return isSameDay(new Date(goal.due_date), selectedDate);
+    // CORREÇÃO: Adiciona T00:00 para garantir interpretação local correta
+    const goalDate = new Date(goal.due_date + 'T00:00:00');
+    return isSameDay(goalDate, selectedDate);
   });
 
   const statusConfig = {

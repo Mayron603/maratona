@@ -141,7 +141,7 @@ export default function MarathonDetail() {
                                 <Input 
                                   value={tempNote}
                                   onChange={(e) => setTempNote(e.target.value)}
-                                  placeholder="Qual livro você vai ler?"
+                                  placeholder="Descrição"
                                   className="h-8 text-sm bg-white"
                                   autoFocus
                                 />

@@ -22,12 +22,14 @@ export default function CalendarView({ goals, onDayClick, selectedDate }) {
   const firstDayOfWeek = monthStart.getDay();
   const emptyDays = Array(firstDayOfWeek).fill(null);
 
-  const getGoalsForDay = (date) => {
-    return goals.filter(goal => {
-      if (!goal.due_date) return false;
-      return isSameDay(new Date(goal.due_date), date);
-    });
-  };
+const getGoalsForDay = (date) => {
+  return goals.filter(goal => {
+    if (!goal.due_date) return false;
+    // CORREÇÃO AQUI TAMBÉM:
+    const goalDate = new Date(goal.due_date + 'T00:00:00');
+    return isSameDay(goalDate, date);
+  });
+};
 
   const getSpecialDate = (date) => {
     const key = format(date, 'MM-dd');

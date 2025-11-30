@@ -37,6 +37,13 @@ export const base44 = {
     me: async () => { try { return await fetchAPI('/me'); } catch { return null; } },
     logout: async () => { localStorage.removeItem('token'); window.location.href = '/login'; }
   },
+  
+  // --- ADICIONADO PARA O RANKING ---
+  users: {
+    list: async () => normalize(await fetchAPI('/users')),
+  },
+  // --------------------------------
+
   entities: {
     Goal: {
       list: async () => normalize(await fetchAPI('/goals')),
@@ -53,7 +60,10 @@ export const base44 = {
       getMyProgressList: async () => fetchAPI('/my-progress'), // Pega todas as inscrições
       subscribe: async (id) => fetchAPI(`/marathons/${id}/subscribe`, { method: 'POST' }),
       
-      // Funções novas para progresso
+      // ADICIONADO PARA O RANKING:
+      getAllProgress: async () => fetchAPI('/progress/all'),
+      
+      // Funções de progresso individual
       getProgress: async (marathonId) => fetchAPI(`/marathons/${marathonId}/progress`),
       updateTask: async (marathonId, taskId, completed, note) => 
         fetchAPI(`/marathons/${marathonId}/task`, { 

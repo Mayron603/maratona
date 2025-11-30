@@ -92,6 +92,19 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+
+// ROTA NOVA: Listar usuários para o Ranking
+app.get('/api/users', async (req, res) => {
+  const users = await User.find().select('name email role');
+  res.json(users);
+});
+
+// ROTA NOVA: Pegar o progresso de TODO MUNDO para o Ranking
+app.get('/api/progress/all', async (req, res) => {
+  const allProgress = await MarathonProgress.find();
+  res.json(allProgress);
+});
+
 // --- PROGRESSO DA MARATONA ---
 
 // ROTA NOVA: Pega todo o progresso do usuário (para saber em quais ele está inscrito)

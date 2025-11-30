@@ -18,14 +18,22 @@ import {
 } from 'lucide-react';
 
 export default function Ranking() {
+  // 1. Busca Usuários (NOVO)
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => base44.users.list(),
+  });
+
+  // 2. Busca Metas
   const { data: allGoals = [], isLoading: loadingGoals } = useQuery({
     queryKey: ['all-goals'],
     queryFn: () => base44.entities.Goal.list(),
   });
 
-  const { data: allMarathons = [], isLoading: loadingMarathons } = useQuery({
-    queryKey: ['all-marathons'],
-    queryFn: () => base44.entities.Marathon.list(),
+  // 3. Busca Progresso das Maratonas (NOVO)
+  const { data: allProgress = [], isLoading: loadingMarathons } = useQuery({
+    queryKey: ['all-progress'],
+    queryFn: () => base44.entities.Marathon.getAllProgress(),
   });
 
   const { data: currentUser } = useQuery({
@@ -35,65 +43,61 @@ export default function Ranking() {
 
   // Calcular ranking por usuário
   const calculateUserStats = () => {
+    // Cria um mapa inicial com todos os usuários cadastrados
     const userStats = {};
+    
+    users.forEach(user => {
+      // Usa o ID do usuário como chave principal
+      userStats[user.id] = {
+        id: user.id,
+        email: user.email,
+        name: user.name || user.email.split('@')[0],
+        totalGoals: 0,
+        completedGoals: 0,
+        marathonTasks: 0,
+        completedMarathonTasks: 0,
+        points: 0
+      };
+    });
 
-    // Processar metas
+    // Processar METAS (Usa o email para linkar com o usuário)
     allGoals.forEach(goal => {
       const email = goal.created_by;
       if (!email) return;
       
-      if (!userStats[email]) {
-        userStats[email] = {
-          email,
-          totalGoals: 0,
-          completedGoals: 0,
-          marathonTasks: 0,
-          completedMarathonTasks: 0,
-          points: 0
-        };
-      }
+      // Encontra o usuário pelo email
+      const user = Object.values(userStats).find(u => u.email === email);
       
-      userStats[email].totalGoals++;
-      if (goal.status === 'concluido') {
-        userStats[email].completedGoals++;
-        userStats[email].points += 10; // 10 pontos por meta concluída
+      if (user) {
+        user.totalGoals++;
+        if (goal.status === 'concluido') {
+          user.completedGoals++;
+          user.points += 10; // 10 pontos por meta concluída
+        }
       }
     });
 
-    // Processar maratonas
-    allMarathons.forEach(marathon => {
-      const email = marathon.created_by;
-      if (!email) return;
+    // Processar MARATONAS (Usa o userId para linkar)
+    allProgress.forEach(prog => {
+      const user = userStats[prog.userId];
       
-      if (!userStats[email]) {
-        userStats[email] = {
-          email,
-          totalGoals: 0,
-          completedGoals: 0,
-          marathonTasks: 0,
-          completedMarathonTasks: 0,
-          points: 0
-        };
-      }
-
-      marathon.rounds?.forEach(round => {
-        round.tasks?.forEach(task => {
-          userStats[email].marathonTasks++;
+      if (user && prog.tasks) {
+        prog.tasks.forEach(task => {
+          // Conta apenas tarefas marcadas como concluídas
           if (task.completed) {
-            userStats[email].completedMarathonTasks++;
-            userStats[email].points += 5; // 5 pontos por tarefa de maratona
+            user.completedMarathonTasks++;
+            user.points += 5; // 5 pontos por tarefa de maratona
           }
         });
-      });
+      }
     });
 
     return Object.values(userStats)
       .map(user => ({
         ...user,
-        totalCompleted: user.completedGoals + user.completedMarathonTasks,
-        name: user.email.split('@')[0]
+        totalCompleted: user.completedGoals + user.completedMarathonTasks
       }))
-      .sort((a, b) => b.points - a.points);
+      .sort((a, b) => b.points - a.points); // Ordena do maior para o menor
   };
 
   const rankings = calculateUserStats();
@@ -113,8 +117,8 @@ export default function Ranking() {
     return 'from-white to-gray-50 border-gray-200';
   };
 
-  const getInitials = (email) => {
-    return email.split('@')[0].slice(0, 2).toUpperCase();
+  const getInitials = (val) => {
+    return val ? val.slice(0, 2).toUpperCase() : '??';
   };
 
   const currentUserRank = rankings.findIndex(r => r.email === currentUser?.email);
@@ -141,7 +145,7 @@ export default function Ranking() {
                 <div className="relative">
                   <Avatar className="w-16 h-16 border-4 border-white/30">
                     <AvatarFallback className="bg-white/20 text-white text-xl font-bold">
-                      {getInitials(currentUserStats.email)}
+                      {getInitials(currentUserStats.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="absolute -bottom-1 -right-1 bg-yellow-400 rounded-full p-1">
@@ -209,7 +213,7 @@ export default function Ranking() {
                   <div className="space-y-3">
                     {rankings.map((user, index) => (
                       <div
-                        key={user.email}
+                        key={user.id || index}
                         className={`flex items-center gap-4 p-4 rounded-xl border-2 bg-gradient-to-r ${getMedalColor(index)} transition-all hover:shadow-md ${
                           user.email === currentUser?.email ? 'ring-2 ring-red-400 ring-offset-2' : ''
                         }`}
@@ -219,7 +223,7 @@ export default function Ranking() {
                         </div>
                         <Avatar className="w-12 h-12 border-2 border-white shadow">
                           <AvatarFallback className={`${index < 3 ? 'bg-white text-gray-800' : 'bg-gray-100 text-gray-600'} font-bold`}>
-                            {getInitials(user.email)}
+                            {getInitials(user.name)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
@@ -261,7 +265,7 @@ export default function Ranking() {
                     .sort((a, b) => b.completedGoals - a.completedGoals)
                     .map((user, index) => (
                       <div
-                        key={user.email}
+                        key={user.id || index}
                         className={`flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-md ${
                           user.email === currentUser?.email 
                             ? 'bg-red-50 border-red-200' 
@@ -273,7 +277,7 @@ export default function Ranking() {
                         </div>
                         <Avatar className="w-10 h-10">
                           <AvatarFallback className="bg-red-100 text-red-600">
-                            {getInitials(user.email)}
+                            {getInitials(user.name)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
@@ -305,7 +309,7 @@ export default function Ranking() {
                     .sort((a, b) => b.completedMarathonTasks - a.completedMarathonTasks)
                     .map((user, index) => (
                       <div
-                        key={user.email}
+                        key={user.id || index}
                         className={`flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-md ${
                           user.email === currentUser?.email 
                             ? 'bg-green-50 border-green-200' 
@@ -317,7 +321,7 @@ export default function Ranking() {
                         </div>
                         <Avatar className="w-10 h-10">
                           <AvatarFallback className="bg-green-100 text-green-600">
-                            {getInitials(user.email)}
+                            {getInitials(user.name)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
