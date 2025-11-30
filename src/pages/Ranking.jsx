@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // <--- 1. Importei AvatarImage
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Trophy, 
@@ -18,19 +18,16 @@ import {
 } from 'lucide-react';
 
 export default function Ranking() {
-  // 1. Busca Usuários (NOVO)
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
     queryFn: () => base44.users.list(),
   });
 
-  // 2. Busca Metas
   const { data: allGoals = [], isLoading: loadingGoals } = useQuery({
     queryKey: ['all-goals'],
     queryFn: () => base44.entities.Goal.list(),
   });
 
-  // 3. Busca Progresso das Maratonas (NOVO)
   const { data: allProgress = [], isLoading: loadingMarathons } = useQuery({
     queryKey: ['all-progress'],
     queryFn: () => base44.entities.Marathon.getAllProgress(),
@@ -43,15 +40,14 @@ export default function Ranking() {
 
   // Calcular ranking por usuário
   const calculateUserStats = () => {
-    // Cria um mapa inicial com todos os usuários cadastrados
     const userStats = {};
     
     users.forEach(user => {
-      // Usa o ID do usuário como chave principal
       userStats[user.id] = {
         id: user.id,
         email: user.email,
         name: user.name || user.email.split('@')[0],
+        avatar: user.avatar, // <--- 2. Adicionei o avatar aqui!
         totalGoals: 0,
         completedGoals: 0,
         marathonTasks: 0,
@@ -60,33 +56,28 @@ export default function Ranking() {
       };
     });
 
-    // Processar METAS (Usa o email para linkar com o usuário)
+    // Processar METAS
     allGoals.forEach(goal => {
       const email = goal.created_by;
       if (!email) return;
-      
-      // Encontra o usuário pelo email
       const user = Object.values(userStats).find(u => u.email === email);
-      
       if (user) {
         user.totalGoals++;
         if (goal.status === 'concluido') {
           user.completedGoals++;
-          user.points += 10; // 10 pontos por meta concluída
+          user.points += 10;
         }
       }
     });
 
-    // Processar MARATONAS (Usa o userId para linkar)
+    // Processar MARATONAS
     allProgress.forEach(prog => {
       const user = userStats[prog.userId];
-      
       if (user && prog.tasks) {
         prog.tasks.forEach(task => {
-          // Conta apenas tarefas marcadas como concluídas
           if (task.completed) {
             user.completedMarathonTasks++;
-            user.points += 5; // 5 pontos por tarefa de maratona
+            user.points += 5;
           }
         });
       }
@@ -97,7 +88,7 @@ export default function Ranking() {
         ...user,
         totalCompleted: user.completedGoals + user.completedMarathonTasks
       }))
-      .sort((a, b) => b.points - a.points); // Ordena do maior para o menor
+      .sort((a, b) => b.points - a.points);
   };
 
   const rankings = calculateUserStats();
@@ -127,7 +118,6 @@ export default function Ranking() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-green-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-800 flex items-center justify-center gap-3">
             <Trophy className="w-8 h-8 text-yellow-500" />
@@ -136,7 +126,7 @@ export default function Ranking() {
           <p className="text-gray-500 mt-1">Quem está arrasando nas metas de fim de ano? 🏆</p>
         </div>
 
-        {/* Current User Stats */}
+        {/* Card do Usuário Atual (Topo) */}
         {currentUserStats && (
           <Card className="mb-8 bg-gradient-to-r from-red-500 to-red-600 text-white border-0 shadow-xl overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -144,6 +134,8 @@ export default function Ranking() {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Avatar className="w-16 h-16 border-4 border-white/30">
+                    {/* 3. Avatar Image no Card Principal */}
+                    <AvatarImage src={currentUserStats.avatar} />
                     <AvatarFallback className="bg-white/20 text-white text-xl font-bold">
                       {getInitials(currentUserStats.name)}
                     </AvatarFallback>
@@ -181,7 +173,6 @@ export default function Ranking() {
           </Card>
         )}
 
-        {/* Tabs */}
         <Tabs defaultValue="geral" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="geral">🏆 Geral</TabsTrigger>
@@ -189,6 +180,7 @@ export default function Ranking() {
             <TabsTrigger value="maratonas">🏅 Maratonas</TabsTrigger>
           </TabsList>
 
+          {/* Aba Geral */}
           <TabsContent value="geral">
             <Card className="bg-white/90 backdrop-blur-sm border-2 border-yellow-100 shadow-xl">
               <CardHeader className="pb-2">
@@ -222,6 +214,8 @@ export default function Ranking() {
                           {getMedalIcon(index)}
                         </div>
                         <Avatar className="w-12 h-12 border-2 border-white shadow">
+                          {/* 4. Avatar Image na Lista Geral */}
+                          <AvatarImage src={user.avatar} />
                           <AvatarFallback className={`${index < 3 ? 'bg-white text-gray-800' : 'bg-gray-100 text-gray-600'} font-bold`}>
                             {getInitials(user.name)}
                           </AvatarFallback>
@@ -251,6 +245,7 @@ export default function Ranking() {
             </Card>
           </TabsContent>
 
+          {/* Aba Metas */}
           <TabsContent value="metas">
             <Card className="bg-white/90 backdrop-blur-sm border-2 border-red-100 shadow-xl">
               <CardHeader className="pb-2">
@@ -276,6 +271,8 @@ export default function Ranking() {
                           <span className="font-bold text-red-600">{index + 1}</span>
                         </div>
                         <Avatar className="w-10 h-10">
+                          {/* 5. Avatar Image na Lista de Metas */}
+                          <AvatarImage src={user.avatar} />
                           <AvatarFallback className="bg-red-100 text-red-600">
                             {getInitials(user.name)}
                           </AvatarFallback>
@@ -295,6 +292,7 @@ export default function Ranking() {
             </Card>
           </TabsContent>
 
+          {/* Aba Maratonas */}
           <TabsContent value="maratonas">
             <Card className="bg-white/90 backdrop-blur-sm border-2 border-green-100 shadow-xl">
               <CardHeader className="pb-2">
@@ -320,6 +318,8 @@ export default function Ranking() {
                           <span className="font-bold text-green-600">{index + 1}</span>
                         </div>
                         <Avatar className="w-10 h-10">
+                          {/* 6. Avatar Image na Lista de Maratonas */}
+                          <AvatarImage src={user.avatar} />
                           <AvatarFallback className="bg-green-100 text-green-600">
                             {getInitials(user.name)}
                           </AvatarFallback>
@@ -340,7 +340,7 @@ export default function Ranking() {
           </TabsContent>
         </Tabs>
 
-        {/* Points Info */}
+        {/* Info */}
         <Card className="mt-6 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-100">
           <CardContent className="p-4">
             <h3 className="font-semibold text-purple-800 mb-2 flex items-center gap-2">
