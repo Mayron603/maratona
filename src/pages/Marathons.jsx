@@ -24,13 +24,25 @@ export default function Marathons() {
     queryFn: () => base44.entities.Marathon.list(),
   });
 
-  // 3. NOVO: Busca lista de inscrições do usuário para saber qual botão mostrar
+  // 3. Busca lista de inscrições do usuário (para saber qual botão mostrar: "Participar" ou "Continuar")
   const { data: myProgressList = [] } = useQuery({
     queryKey: ['my-progress'],
     queryFn: () => base44.entities.Marathon.getMyProgressList(),
   });
 
-  // Mutações (Criar, Atualizar, Deletar, Inscrever)
+  // 4. Busca TODOS os usuários e TODO o progresso (para mostrar as carinhas dos participantes)
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => base44.users.list(),
+  });
+
+  const { data: allProgress = [] } = useQuery({
+    queryKey: ['all-progress'],
+    queryFn: () => base44.entities.Marathon.getAllProgress(),
+  });
+
+  // --- MUTAÇÕES ---
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Marathon.create(data),
     onSuccess: () => {
@@ -57,16 +69,17 @@ export default function Marathons() {
     },
   });
 
-  // NOVO: Mutação para se inscrever
   const subscribeMutation = useMutation({
     mutationFn: (id) => base44.entities.Marathon.subscribe(id),
     onSuccess: () => {
-      // Atualiza a lista de progresso para o botão mudar na hora
+      // Atualiza minhas inscrições e o progresso geral (para aparecer minha carinha)
       queryClient.invalidateQueries({ queryKey: ['my-progress'] });
+      queryClient.invalidateQueries({ queryKey: ['all-progress'] });
     },
   });
 
-  // Handlers (Funções de clique)
+  // --- HANDLERS ---
+
   const handleSubmit = (data) => {
     if (editingMarathon) {
       updateMutation.mutate({ id: editingMarathon.id, data });
@@ -84,7 +97,6 @@ export default function Marathons() {
     if (confirm('Tem certeza que deseja excluir esta maratona?')) deleteMutation.mutate(id);
   };
 
-  // NOVO: Handler de inscrição
   const handleSubscribe = (id) => {
     subscribeMutation.mutate(id);
   };
@@ -144,7 +156,6 @@ export default function Marathons() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-green-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        {/* Cabeçalho e Botão de Criar (Admin) */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800 flex items-center gap-3">
@@ -201,17 +212,24 @@ export default function Marathons() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {marathons.map(marathon => {
-              // Verifica se o usuário já está inscrito nesta maratona
+              // 1. Verifica se estou inscrito
               const userProgress = myProgressList.find(p => p.marathonId === marathon.id);
               
+              // 2. Calcula quem são os participantes (cruza progressos com usuários)
+              const participantIds = allProgress
+                .filter(p => p.marathonId === marathon.id)
+                .map(p => p.userId);
+              const participants = allUsers.filter(u => participantIds.includes(u.id));
+
               return (
                 <MarathonCard 
                   key={marathon.id} 
                   marathon={marathon} 
-                  userProgress={userProgress} // Passa o progresso (ou undefined)
+                  userProgress={userProgress} // Passa meu progresso
+                  participants={participants} // Passa a lista de todos os participantes
                   onDelete={isAdmin ? handleDelete : null} 
                   onEdit={isAdmin ? handleEdit : null}
-                  onSubscribe={handleSubscribe} // Passa a função de inscrição
+                  onSubscribe={handleSubscribe}
                 />
               );
             })}

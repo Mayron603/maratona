@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Film, Book, Calendar, Star, Trash2, Play, Edit, User, PlusCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const typeConfig = {
   filmes_natal: { icon: Film, label: 'Filmes de Natal', color: 'bg-purple-100 text-purple-700' },
@@ -14,19 +15,12 @@ const typeConfig = {
   personalizada: { icon: Star, label: 'Personalizada', color: 'bg-yellow-100 text-yellow-700' }
 };
 
-// Agora recebe userProgress e onSubscribe
-export default function MarathonCard({ marathon, userProgress, onDelete, onEdit, onSubscribe }) {
+export default function MarathonCard({ marathon, userProgress, participants = [], onDelete, onEdit, onSubscribe }) {
   const TypeIcon = typeConfig[marathon.type]?.icon || Star;
-  const isSubscribed = !!userProgress; // Se existe objeto de progresso, está inscrito
+  const isSubscribed = !!userProgress;
 
-  // Cálculo de progresso baseado no userProgress (não no marathon estático)
   const totalTasks = marathon.rounds?.reduce((acc, round) => acc + (round.tasks?.length || 0), 0) || 0;
-  
-  // Conta tarefas concluídas olhando para o array do usuário
-  const completedTasks = isSubscribed 
-    ? userProgress.tasks?.filter(t => t.completed).length || 0 
-    : 0;
-    
+  const completedTasks = isSubscribed ? userProgress.tasks?.filter(t => t.completed).length || 0 : 0;
   const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
   const getCreatorName = () => {
@@ -76,8 +70,32 @@ export default function MarathonCard({ marathon, userProgress, onDelete, onEdit,
           <p className="text-sm text-gray-500 mb-4 line-clamp-2">{marathon.description}</p>
         )}
 
+        {/* --- MOSTRAR PARTICIPANTES --- */}
+        {participants.length > 0 && (
+          <div className="flex items-center gap-2 mb-4 pl-1">
+            <div className="flex -space-x-2">
+              {participants.slice(0, 4).map((user) => (
+                <Avatar key={user.id} className="w-6 h-6 border-2 border-white">
+                  <AvatarImage src={user.avatar} />
+                  <AvatarFallback className="text-[10px] bg-blue-100 text-blue-700 font-bold">
+                    {user.name?.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {participants.length > 4 && (
+                <div className="w-6 h-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[10px] text-gray-500 font-medium">
+                  +{participants.length - 4}
+                </div>
+              )}
+            </div>
+            <span className="text-xs text-gray-400">
+              {participants.length} {participants.length === 1 ? 'participante' : 'participantes'}
+            </span>
+          </div>
+        )}
+        {/* ----------------------------- */}
+
         <div className="space-y-3">
-          {/* Se estiver inscrito, mostra progresso. Se não, mostra convite. */}
           {isSubscribed ? (
             <>
               <div className="flex items-center justify-between text-sm">
@@ -88,7 +106,7 @@ export default function MarathonCard({ marathon, userProgress, onDelete, onEdit,
             </>
           ) : (
             <div className="text-sm text-gray-400 italic mb-2">
-              Junte-se a essa maratona para começar!
+              Junte-se para começar!
             </div>
           )}
 
@@ -98,7 +116,6 @@ export default function MarathonCard({ marathon, userProgress, onDelete, onEdit,
               <span>Por: {getCreatorName()}</span>
             </div>
 
-            {/* Botão Dinâmico */}
             {isSubscribed ? (
               <Link to={createPageUrl(`MarathonDetail?id=${marathon.id}`)}>
                 <Button size="sm" className="bg-green-600 hover:bg-green-700">
