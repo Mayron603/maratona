@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 dotenv.config();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 app.use(cors());
 
 mongoose.connect(process.env.MONGO_URI)

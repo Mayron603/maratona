@@ -111,8 +111,8 @@ export default function Settings() {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 1000000 * 1024) { // 500KB
-        alert("A imagem é muito grande! Use uma imagem menor que 500KB.");
+      if (file.size > 10 * 1024 * 1024) { // 500KB
+        alert("A imagem é muito grande! Use uma imagem menor que 10MB.");
         return;
       }
       const reader = new FileReader();
