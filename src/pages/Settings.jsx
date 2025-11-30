@@ -30,7 +30,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 export default function Settings() {
   const queryClient = useQueryClient();
   const [saved, setSaved] = useState(false);
-  const fileInputRef = useRef(null); // Referência para o input de arquivo
+  const fileInputRef = useRef(null);
+  const [compressing, setCompressing] = useState(false); // Estado para mostrar que está comprimindo
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
@@ -62,7 +63,6 @@ export default function Settings() {
     }
   }, [settings]);
 
-  // --- MUTAÇÃO: Salvar Configurações (Neve, Música, etc) ---
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       const existing = await base44.entities.Settings.list();
@@ -83,7 +83,6 @@ export default function Settings() {
     }
   });
 
-  // --- MUTAÇÃO: Salvar Foto de Perfil ---
   const profileMutation = useMutation({
     mutationFn: (data) => base44.auth.updateProfile(data),
     onSuccess: () => {
@@ -91,12 +90,11 @@ export default function Settings() {
       alert("Foto de perfil atualizada!");
     },
     onError: (error) => {
-      console.error(error); // Mostra o erro no console do navegador (F12)
-      alert("Erro real: " + error.message);
+        console.error(error);
+        alert("Erro ao enviar foto: " + error.message);
     }
   });
 
-  // --- MUTAÇÃO: Resetar ---
   const resetMutation = useMutation({
     mutationFn: async () => {
       const goals = await base44.entities.Goal.list();
@@ -110,21 +108,61 @@ export default function Settings() {
     },
   });
 
-  // Lógica de Upload de Imagem
+  // --- NOVA LÓGICA DE COMPRESSÃO ---
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        alert("A imagem é muito grande! Use uma imagem menor que 10MB.");
+    if (!file) return;
+
+    // Se for maior que 10MB, avisa antes
+    if (file.size > 10 * 1024 * 1024) {
+        alert("Imagem muito grande! Escolha uma menor que 10MB.");
         return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        profileMutation.mutate({ avatar: reader.result });
-      };
-      reader.readAsDataURL(file);
     }
+
+    setCompressing(true);
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        // Cria um canvas para redimensionar
+        const canvas = document.createElement('canvas');
+        
+        // Define um tamanho máximo (ex: 400px) - Suficiente para avatar
+        const MAX_WIDTH = 400;
+        const MAX_HEIGHT = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Converte para JPEG com qualidade 0.7 (reduz muito o tamanho!)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        
+        // Envia para o servidor
+        profileMutation.mutate({ avatar: dataUrl });
+        setCompressing(false);
+      };
+    };
   };
+  // ---------------------------------
 
   const handleReset = () => {
     if (confirm('Tem certeza que deseja resetar todo o progresso? Esta ação não pode ser desfeita!')) {
@@ -160,8 +198,6 @@ export default function Settings() {
         )}
 
         <div className="space-y-6">
-          
-          {/* --- BLOCO DA CONTA COM FOTO --- */}
           <Card className="bg-white/90 backdrop-blur-sm border-2 border-blue-100 shadow-xl">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-blue-700">
@@ -172,7 +208,6 @@ export default function Settings() {
             <CardContent>
               {currentUser ? (
                 <div className="flex items-center gap-6">
-                  {/* Área do Avatar */}
                   <div className="relative group">
                     <Avatar className="w-24 h-24 border-4 border-blue-100 shadow-lg">
                       <AvatarImage src={currentUser.avatar} />
@@ -181,13 +216,12 @@ export default function Settings() {
                       </AvatarFallback>
                     </Avatar>
                     
-                    {/* Botão de Câmera (Upload) */}
                     <button 
                       onClick={() => fileInputRef.current.click()}
                       className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
-                      disabled={profileMutation.isPending}
+                      disabled={profileMutation.isPending || compressing}
                     >
-                      {profileMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin text-blue-600" /> : <Camera className="w-4 h-4 text-blue-600" />}
+                      {profileMutation.isPending || compressing ? <Loader2 className="w-4 h-4 animate-spin text-blue-600" /> : <Camera className="w-4 h-4 text-blue-600" />}
                     </button>
                     <input 
                       type="file" 
@@ -220,7 +254,6 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* --- MODO FESTIVO COM VOLUME --- */}
           <Card className="bg-white/90 backdrop-blur-sm border-2 border-red-100 shadow-xl">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-red-700">
@@ -277,7 +310,6 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Theme */}
           <Card className="bg-white/90 backdrop-blur-sm border-2 border-green-100 shadow-xl">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-green-700">
@@ -298,7 +330,6 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Reset */}
           <Card className="bg-white/90 backdrop-blur-sm border-2 border-orange-100 shadow-xl">
             <CardHeader><CardTitle className="text-lg flex items-center gap-2 text-orange-700"><RefreshCw className="w-5 h-5" /> Resetar Progresso</CardTitle></CardHeader>
             <CardContent>
