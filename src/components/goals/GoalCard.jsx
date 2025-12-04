@@ -85,11 +85,12 @@ export default function GoalCard({ goal, onStatusChange, onEdit, onDelete }) {
               <Badge className={`${priorityColors[goal.priority]} border text-xs`}>
                 {goal.priority}
               </Badge>
-              {goal.due_date && (
-                <Badge variant="outline" className="text-xs">
-                  📅 {new Date(goal.due_date).toLocaleDateString('pt-BR')}
-                </Badge>
-              )}
+{goal.due_date && (
+  <Badge variant="outline" className="text-xs">
+    {/* A correção é adicionar T12:00:00 para forçar o horário do meio-dia */}
+    📅 {new Date(goal.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+  </Badge>
+)}
             </div>
           </div>
 
