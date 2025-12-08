@@ -5,7 +5,8 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { 
-  Home, LayoutDashboard, Target, Trophy, Calendar, Settings, Menu, X, TreePine, Volume2, VolumeX 
+  Home, LayoutDashboard, Target, Trophy, Calendar, Settings, Menu, X, TreePine, Volume2, VolumeX,
+  ShieldCheck // <--- 1. NOVO ÍCONE IMPORTADO
 } from 'lucide-react';
 import SnowEffect from '@/components/christmas/SnowEffect';
 import ChristmasLights from '@/components/christmas/ChristmasLights';
@@ -18,7 +19,7 @@ export default function Layout({ children, currentPageName }) {
   const [snowEnabled, setSnowEnabled] = useState(true);
   const [lightsEnabled, setLightsEnabled] = useState(true);
   const [musicEnabled, setMusicEnabled] = useState(false);
-  const [musicVolume, setMusicVolume] = useState(0.5); // Novo estado de volume
+  const [musicVolume, setMusicVolume] = useState(0.5);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const { data: settings } = useQuery({
@@ -29,27 +30,31 @@ export default function Layout({ children, currentPageName }) {
     },
   });
 
+  // --- 2. BUSCAR USUÁRIO ATUAL PARA VERIFICAR PERMISSÃO ---
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: () => base44.auth.me(),
+  });
+
   useEffect(() => {
     if (settings) {
       setSnowEnabled(settings.snow_enabled ?? true);
       setLightsEnabled(settings.lights_enabled ?? true);
       setMusicEnabled(settings.music_enabled ?? false);
-      setMusicVolume(settings.music_volume ?? 0.5); // Carrega o volume
+      setMusicVolume(settings.music_volume ?? 0.5);
     }
   }, [settings]);
 
-  // Aplica o volume sempre que ele mudar
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = musicVolume;
     }
   }, [musicVolume]);
 
-  // Controle de Play/Pause
   useEffect(() => {
     if (audioRef.current) {
       if (musicEnabled) {
-        audioRef.current.volume = musicVolume; // Garante volume ao iniciar
+        audioRef.current.volume = musicVolume;
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
           playPromise.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
@@ -70,6 +75,12 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Ranking', icon: Trophy, label: 'Ranking' },
     { name: 'Settings', icon: Settings, label: 'Configurações' },
   ];
+
+  // --- 3. LÓGICA PARA MOSTRAR BOTÃO ADMIN ---
+  // Se for admin, insere o botão "Admin" antes do último item (Settings)
+  const displayNavItems = currentUser?.role === 'admin' 
+    ? [...navItems.slice(0, 6), { name: 'Admin', icon: ShieldCheck, label: 'Admin' }, ...navItems.slice(6)]
+    : navItems;
 
   const isActive = (name) => currentPageName === name;
 
@@ -113,8 +124,9 @@ export default function Layout({ children, currentPageName }) {
               </div>
             </Link>
 
+            {/* --- 4. AQUI USAMOS displayNavItems NO MENU DESKTOP --- */}
             <div className="hidden md:flex items-center gap-1">
-              {navItems.map((item) => (
+              {displayNavItems.map((item) => (
                 <Link key={item.name} to={createPageUrl(item.name)}>
                   <Button
                     variant={isActive(item.name) ? "default" : "ghost"}
@@ -145,8 +157,9 @@ export default function Layout({ children, currentPageName }) {
 
         {mobileMenuOpen && (
           <div className="md:hidden bg-white/95 backdrop-blur-lg border-t border-red-100">
+            {/* --- 4. AQUI USAMOS displayNavItems NO MENU MOBILE --- */}
             <div className="px-4 py-3 space-y-1">
-              {navItems.map((item) => (
+              {displayNavItems.map((item) => (
                 <Link 
                   key={item.name} 
                   to={createPageUrl(item.name)}

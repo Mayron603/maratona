@@ -13,6 +13,7 @@ import MarathonDetail from './pages/MarathonDetail';
 import Calendar from './pages/Calendar';
 import Ranking from './pages/Ranking';
 import Settings from './pages/Settings';
+import AdminProgress from './pages/AdminProgress'; // <--- Importe aqui
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,12 @@ function App() {
           <Route path="/ranking" element={
             <ProtectedRoute>
               <Layout currentPageName="Ranking"><Ranking /></Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <Layout currentPageName="Admin"><AdminProgress /></Layout>
             </ProtectedRoute>
           } />
           
