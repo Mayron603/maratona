@@ -1,14 +1,16 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 const app = express();
 
-// --- MUDANÇA 1: Aumentar o limite para aceitar fotos ---
-app.use(express.json({ limit: '10mb' })); 
+// Aumenta o limite para aceitar fotos (Vercel limita o payload a 4.5MB, então 10MB aqui é seguro para o Express)
+app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
 mongoose.connect(process.env.MONGO_URI)
@@ -21,7 +23,7 @@ const User = mongoose.model('User', new mongoose.Schema({
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
   role: { type: String, default: 'participant' },
-  avatar: String // Caso queira salvar avatar do usuário tbm
+  avatar: String
 }));
 
 const Goal = mongoose.model('Goal', new mongoose.Schema({
@@ -61,7 +63,7 @@ const MarathonProgress = mongoose.model('MarathonProgress', new mongoose.Schema(
     taskId: String,
     completed: Boolean,
     note: String,
-    photo: String // --- MUDANÇA 2: Campo novo para a foto ---
+    photo: String // Campo da foto garantido no Schema
   }]
 }));
 
@@ -109,7 +111,10 @@ app.post('/api/login', async (req, res) => {
   } catch { res.status(500).json({ error: 'Erro no servidor' }); }
 });
 
-// Atualizar Perfil (Foto de Avatar)
+app.get('/api/me', authenticateToken, (req, res) => {
+  res.json({ id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role, avatar: req.user.avatar });
+});
+
 app.put('/api/me', authenticateToken, async (req, res) => {
     try {
         const user = await User.findByIdAndUpdate(req.user._id, req.body, { new: true });
@@ -119,27 +124,20 @@ app.put('/api/me', authenticateToken, async (req, res) => {
     }
 });
 
-app.get('/api/me', authenticateToken, (req, res) => {
-  res.json({ id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role, avatar: req.user.avatar });
-});
-
-// --- ROTAS USUÁRIOS (Para o Ranking mostrar fotos) ---
 app.get('/api/users', async (req, res) => {
-    const users = await User.find({}, 'name email avatar role'); // Retorna avatar tb
+    const users = await User.find({}, 'name email avatar role');
     res.json(users);
 });
 
 // --- ROTAS METAS ---
 app.get('/api/goals', authenticateToken, async (req, res) => {
-    const goals = await Goal.find({ created_by: req.user.email }).sort({ created_at: -1 });
-    res.json(goals);
+  const goals = await Goal.find({ created_by: req.user.email }).sort({ created_at: -1 });
+  res.json(goals);
 });
-// Rota "ADMIN" para pegar todas as metas (para o ranking funcionar corretamente)
 app.get('/api/goals/all', async (req, res) => {
     const goals = await Goal.find({});
     res.json(goals);
 });
-
 app.post('/api/goals', authenticateToken, async (req, res) => {
   const goal = await Goal.create({ ...req.body, created_by: req.user.email });
   res.json(goal);
@@ -169,21 +167,17 @@ app.delete('/api/marathons/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// --- ROTAS DE PROGRESSO DA MARATONA ---
-
-// 1. Meu Progresso (Lista de todas as maratonas que participo)
+// --- ROTAS PROGRESSO ---
 app.get('/api/my-progress', authenticateToken, async (req, res) => {
     const progress = await MarathonProgress.find({ userId: req.user._id });
     res.json(progress);
 });
 
-// 2. Progresso de Todos (Para o Ranking)
 app.get('/api/progress/all', async (req, res) => {
     const progress = await MarathonProgress.find({});
     res.json(progress);
 });
 
-// 3. Progresso Específico de uma Maratona
 app.get('/api/marathons/:id/progress', authenticateToken, async (req, res) => {
   let progress = await MarathonProgress.findOne({ userId: req.user._id, marathonId: req.params.id });
   if (!progress) {
@@ -192,7 +186,6 @@ app.get('/api/marathons/:id/progress', authenticateToken, async (req, res) => {
   res.json(progress);
 });
 
-// 4. Inscrever-se em uma maratona
 app.post('/api/marathons/:id/subscribe', authenticateToken, async (req, res) => {
     const marathonId = req.params.id;
     const userId = req.user._id;
@@ -204,9 +197,8 @@ app.post('/api/marathons/:id/subscribe', authenticateToken, async (req, res) => 
     res.json(progress);
 });
 
-// 5. Atualizar Tarefa (Check, Nota e Foto)
+// ROTA DA FOTO
 app.post('/api/marathons/:id/task', authenticateToken, async (req, res) => {
-  // --- MUDANÇA 3: Receber photo do body ---
   const { taskId, completed, note, photo } = req.body;
   const marathonId = req.params.id;
   const userId = req.user._id;
@@ -218,17 +210,15 @@ app.post('/api/marathons/:id/task', authenticateToken, async (req, res) => {
 
   const taskIndex = progress.tasks.findIndex(t => t.taskId === taskId);
   if (taskIndex > -1) {
-    // Atualiza existente
     if (completed !== undefined) progress.tasks[taskIndex].completed = completed;
     if (note !== undefined) progress.tasks[taskIndex].note = note;
-    if (photo !== undefined) progress.tasks[taskIndex].photo = photo; // Atualiza a foto se vier
+    if (photo !== undefined) progress.tasks[taskIndex].photo = photo;
   } else {
-    // Cria novo registro de tarefa
     progress.tasks.push({ 
         taskId, 
         completed: completed || false, 
         note: note || '',
-        photo: photo || '' // Salva a foto
+        photo: photo || ''
     });
   }
 
@@ -255,9 +245,12 @@ app.put('/api/settings/:id', async (req, res) => {
     }
 });
 
-module.exports = app;
+// Exporta o app para a Vercel
+export default app;
 
-if (require.main === module) {
+// Inicia servidor apenas se rodado localmente (equivalente a require.main === module em ESM)
+import { fileURLToPath } from 'url';
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
 }
