@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, CheckCircle2, Circle, StickyNote, Save, Trophy, Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Circle, StickyNote, Save, Trophy, Camera, Image as ImageIcon, Loader2, Trash2, RefreshCw } from 'lucide-react';
 
 export default function MarathonDetail() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -33,7 +33,7 @@ export default function MarathonDetail() {
     enabled: !!marathonId,
   });
 
-  // 2. Busca o progresso do usuário (checks, notas e fotos)
+  // 2. Busca o progresso do usuário
   const { data: userProgress } = useQuery({
     queryKey: ['marathon-progress', marathonId],
     queryFn: () => base44.entities.Marathon.getProgress(marathonId),
@@ -55,7 +55,6 @@ export default function MarathonDetail() {
     }
   });
 
-  // Funções auxiliares para pegar dados do progresso
   const getTaskData = (taskId) => {
     return userProgress?.tasks?.find(t => t.taskId === taskId) || {};
   };
@@ -69,15 +68,18 @@ export default function MarathonDetail() {
     updateTaskMutation.mutate({ taskId, note: tempNote });
   };
 
-  // --- LÓGICA DE UPLOAD E COMPRESSÃO DE FOTO ---
+  // --- LÓGICA DE FOTOS ---
+  
+  // Abrir seletor de arquivos
   const triggerPhotoUpload = (taskId) => {
     setActiveTaskIdForPhoto(taskId);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''; // Limpa seleção anterior
+      fileInputRef.current.value = '';
       fileInputRef.current.click();
     }
   };
 
+  // Processar arquivo selecionado
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file || !activeTaskIdForPhoto) return;
@@ -96,7 +98,7 @@ export default function MarathonDetail() {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 800; // Tamanho um pouco maior para ver detalhes
+        const MAX_SIZE = 800;
         let width = img.width;
         let height = img.height;
 
@@ -117,19 +119,28 @@ export default function MarathonDetail() {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 0.6 para leveza
         
-        // Envia a foto mantendo o status atual
-        const currentData = getTaskData(activeTaskIdForPhoto);
+        // Atualiza a foto (sobrescreve se já existir)
         updateTaskMutation.mutate({ 
           taskId: activeTaskIdForPhoto, 
           photo: dataUrl,
-          completed: true // Opcional: marca como feito ao subir foto? Deixei true por conveniência
+          completed: true 
         });
       };
     };
   };
-  // ---------------------------------------------
+
+  // Deletar foto
+  const handleDeletePhoto = (taskId) => {
+    if (confirm("Tem certeza que deseja remover esta foto?")) {
+      updateTaskMutation.mutate({ 
+        taskId, 
+        photo: "" // Envia string vazia para limpar no banco
+      });
+    }
+  };
+  // -----------------------
 
   if (loadingMarathon || !marathon) return <div className="p-8 text-center">Carregando maratona...</div>;
 
@@ -140,7 +151,6 @@ export default function MarathonDetail() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-green-50 p-4 md:p-8">
-      {/* Input de arquivo oculto global */}
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -213,9 +223,8 @@ export default function MarathonDetail() {
                             {task.text}
                           </span>
                           
-                          {/* Área de Ações: Nota e Foto */}
                           <div className="mt-2 flex flex-wrap items-center gap-4">
-                            {/* Bloco da Nota */}
+                            {/* Nota */}
                             <div className="flex-1 min-w-[200px]">
                               {editingNoteId === task.id ? (
                                 <div className="flex gap-2">
@@ -241,7 +250,7 @@ export default function MarathonDetail() {
                               )}
                             </div>
 
-                            {/* Bloco da Foto */}
+                            {/* Foto */}
                             <div className="flex items-center gap-2">
                               {photo ? (
                                 <Dialog>
@@ -253,8 +262,25 @@ export default function MarathonDetail() {
                                       </div>
                                     </div>
                                   </DialogTrigger>
-                                  <DialogContent className="p-0 overflow-hidden bg-transparent border-0 max-w-3xl">
-                                    <img src={photo} alt="Prova Full" className="w-full h-auto rounded-lg shadow-2xl" />
+                                  <DialogContent className="p-0 bg-transparent border-0 max-w-3xl flex flex-col items-center">
+                                    <img src={photo} alt="Prova Full" className="max-h-[70vh] w-auto rounded-lg shadow-2xl mb-4" />
+                                    
+                                    {/* Botões de Ação na Foto */}
+                                    <div className="flex gap-3">
+                                      <Button 
+                                        onClick={() => triggerPhotoUpload(task.id)}
+                                        className="bg-white text-gray-800 hover:bg-gray-100"
+                                      >
+                                        <RefreshCw className="w-4 h-4 mr-2" /> Trocar Foto
+                                      </Button>
+                                      <Button 
+                                        onClick={() => handleDeletePhoto(task.id)}
+                                        variant="destructive"
+                                      >
+                                        <Trash2 className="w-4 h-4 mr-2" /> Apagar Foto
+                                      </Button>
+                                    </div>
+
                                   </DialogContent>
                                 </Dialog>
                               ) : (
