@@ -6,7 +6,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-app.use(express.json());
+
+// --- MUDANÇA 1: Aumentar o limite para aceitar fotos ---
+app.use(express.json({ limit: '10mb' })); 
 app.use(cors());
 
 mongoose.connect(process.env.MONGO_URI)
@@ -18,7 +20,8 @@ const User = mongoose.model('User', new mongoose.Schema({
   name: String,
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
-  role: { type: String, default: 'participant' }
+  role: { type: String, default: 'participant' },
+  avatar: String // Caso queira salvar avatar do usuário tbm
 }));
 
 const Goal = mongoose.model('Goal', new mongoose.Schema({
@@ -45,21 +48,20 @@ const Marathon = mongoose.model('Marathon', new mongoose.Schema({
     tasks: [{
       id: String,
       text: String
-      // Removemos 'completed' daqui pois agora fica no progresso do usuário
     }]
   }],
   created_by: String,
   created_at: { type: Date, default: Date.now }
 }));
 
-// NOVO: Tabela para salvar o progresso de cada usuário individualmente
 const MarathonProgress = mongoose.model('MarathonProgress', new mongoose.Schema({
   userId: String,
   marathonId: String,
   tasks: [{
     taskId: String,
     completed: Boolean,
-    note: String // Aqui salvamos o comentário do livro!
+    note: String,
+    photo: String // --- MUDANÇA 2: Campo novo para a foto ---
   }]
 }));
 
@@ -103,20 +105,41 @@ app.post('/api/login', async (req, res) => {
       return res.status(400).json({ error: 'Erro de login' });
     }
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
   } catch { res.status(500).json({ error: 'Erro no servidor' }); }
 });
 
+// Atualizar Perfil (Foto de Avatar)
+app.put('/api/me', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findByIdAndUpdate(req.user._id, req.body, { new: true });
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao atualizar perfil' });
+    }
+});
+
 app.get('/api/me', authenticateToken, (req, res) => {
-  res.json({ id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role });
+  res.json({ id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role, avatar: req.user.avatar });
+});
+
+// --- ROTAS USUÁRIOS (Para o Ranking mostrar fotos) ---
+app.get('/api/users', async (req, res) => {
+    const users = await User.find({}, 'name email avatar role'); // Retorna avatar tb
+    res.json(users);
 });
 
 // --- ROTAS METAS ---
 app.get('/api/goals', authenticateToken, async (req, res) => {
-  // Mostra apenas metas do próprio usuário
-  const goals = await Goal.find({ created_by: req.user.email }).sort({ created_at: -1 });
-  res.json(goals);
+    const goals = await Goal.find({ created_by: req.user.email }).sort({ created_at: -1 });
+    res.json(goals);
 });
+// Rota "ADMIN" para pegar todas as metas (para o ranking funcionar corretamente)
+app.get('/api/goals/all', async (req, res) => {
+    const goals = await Goal.find({});
+    res.json(goals);
+});
+
 app.post('/api/goals', authenticateToken, async (req, res) => {
   const goal = await Goal.create({ ...req.body, created_by: req.user.email });
   res.json(goal);
@@ -146,8 +169,21 @@ app.delete('/api/marathons/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// --- NOVO: ROTAS DE PROGRESSO DA MARATONA ---
-// Pega o progresso do usuário em uma maratona específica
+// --- ROTAS DE PROGRESSO DA MARATONA ---
+
+// 1. Meu Progresso (Lista de todas as maratonas que participo)
+app.get('/api/my-progress', authenticateToken, async (req, res) => {
+    const progress = await MarathonProgress.find({ userId: req.user._id });
+    res.json(progress);
+});
+
+// 2. Progresso de Todos (Para o Ranking)
+app.get('/api/progress/all', async (req, res) => {
+    const progress = await MarathonProgress.find({});
+    res.json(progress);
+});
+
+// 3. Progresso Específico de uma Maratona
 app.get('/api/marathons/:id/progress', authenticateToken, async (req, res) => {
   let progress = await MarathonProgress.findOne({ userId: req.user._id, marathonId: req.params.id });
   if (!progress) {
@@ -156,9 +192,22 @@ app.get('/api/marathons/:id/progress', authenticateToken, async (req, res) => {
   res.json(progress);
 });
 
-// Atualiza uma tarefa (check ou nota)
+// 4. Inscrever-se em uma maratona
+app.post('/api/marathons/:id/subscribe', authenticateToken, async (req, res) => {
+    const marathonId = req.params.id;
+    const userId = req.user._id;
+    
+    let progress = await MarathonProgress.findOne({ userId, marathonId });
+    if (!progress) {
+        progress = await MarathonProgress.create({ userId, marathonId, tasks: [] });
+    }
+    res.json(progress);
+});
+
+// 5. Atualizar Tarefa (Check, Nota e Foto)
 app.post('/api/marathons/:id/task', authenticateToken, async (req, res) => {
-  const { taskId, completed, note } = req.body;
+  // --- MUDANÇA 3: Receber photo do body ---
+  const { taskId, completed, note, photo } = req.body;
   const marathonId = req.params.id;
   const userId = req.user._id;
 
@@ -172,9 +221,15 @@ app.post('/api/marathons/:id/task', authenticateToken, async (req, res) => {
     // Atualiza existente
     if (completed !== undefined) progress.tasks[taskIndex].completed = completed;
     if (note !== undefined) progress.tasks[taskIndex].note = note;
+    if (photo !== undefined) progress.tasks[taskIndex].photo = photo; // Atualiza a foto se vier
   } else {
     // Cria novo registro de tarefa
-    progress.tasks.push({ taskId, completed: completed || false, note: note || '' });
+    progress.tasks.push({ 
+        taskId, 
+        completed: completed || false, 
+        note: note || '',
+        photo: photo || '' // Salva a foto
+    });
   }
 
   await progress.save();
@@ -202,7 +257,6 @@ app.put('/api/settings/:id', async (req, res) => {
 
 module.exports = app;
 
-// Só roda o servidor localmente se não estiver na Vercel
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));

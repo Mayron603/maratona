@@ -37,14 +37,12 @@ export const base44 = {
     me: async () => { try { return await fetchAPI('/me'); } catch { return null; } },
     logout: async () => { localStorage.removeItem('token'); window.location.href = '/login'; },
     
-    // --- CORREÇÃO: A função updateProfile deve ficar AQUI, dentro de auth ---
     updateProfile: async (data) => {
       return fetchAPI('/me', { 
         method: 'PUT', 
         body: JSON.stringify(data) 
       });
     },
-    // -----------------------------------------------------------------------
   },
   
   users: {
@@ -69,11 +67,14 @@ export const base44 = {
       getAllProgress: async () => fetchAPI('/progress/all'),
       
       getProgress: async (marathonId) => fetchAPI(`/marathons/${marathonId}/progress`),
-      updateTask: async (marathonId, taskId, completed, note) => 
+      
+      // --- ATUALIZADO AQUI ---
+      updateTask: async (marathonId, taskId, completed, note, photo) => 
         fetchAPI(`/marathons/${marathonId}/task`, { 
           method: 'POST', 
-          body: JSON.stringify({ taskId, completed, note }) 
+          body: JSON.stringify({ taskId, completed, note, photo }) 
         }),
+      // -----------------------
         
       filter: async (criteria) => {
         const all = normalize(await fetchAPI('/marathons'));
