@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { CheckCircle2, Circle, StickyNote, Image as ImageIcon, Search, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, Circle, StickyNote, Image as ImageIcon, Search } from 'lucide-react';
 
 export default function AdminProgress() {
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -32,16 +32,8 @@ export default function AdminProgress() {
     queryFn: () => base44.entities.Marathon.getAllProgress(),
   });
 
-  // Se não for admin, bloqueia visualização (segurança de front-end)
-  if (currentUser && currentUser.role !== 'admin') {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-gray-500">
-        <ShieldAlert className="w-16 h-16 text-red-500 mb-4" />
-        <h2 className="text-xl font-bold">Acesso Restrito</h2>
-        <p>Apenas administradores podem ver esta página.</p>
-      </div>
-    );
-  }
+  // REMOVIDO: Bloco de segurança que impedia não-admins de ver a página.
+  // Agora todos os usuários logados podem visualizar o inspetor.
 
   // Lógica para encontrar o progresso do usuário selecionado na maratona selecionada
   const selectedMarathon = marathons.find(m => m.id === selectedMarathonId);
