@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { 
   Home, LayoutDashboard, Target, Trophy, Calendar, Settings, Menu, X, TreePine, Volume2, VolumeX,
-  ShieldCheck // <--- 1. NOVO ÍCONE IMPORTADO
+  camera, Image, Users // Troquei o ícone ShieldCheck por Users ou Image se preferir, ou mantenha
 } from 'lucide-react';
 import SnowEffect from '@/components/christmas/SnowEffect';
 import ChristmasLights from '@/components/christmas/ChristmasLights';
@@ -30,7 +30,6 @@ export default function Layout({ children, currentPageName }) {
     },
   });
 
-  // --- 2. BUSCAR USUÁRIO ATUAL PARA VERIFICAR PERMISSÃO ---
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
     queryFn: () => base44.auth.me(),
@@ -66,6 +65,7 @@ export default function Layout({ children, currentPageName }) {
     }
   }, [musicEnabled]);
 
+  // Lista base de navegação
   const navItems = [
     { name: 'Home', icon: Home, label: 'Início' },
     { name: 'Dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -73,14 +73,11 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Marathons', icon: Trophy, label: 'Maratonas' },
     { name: 'Calendar', icon: Calendar, label: 'Calendário' },
     { name: 'Ranking', icon: Trophy, label: 'Ranking' },
+    { name: 'Admin', icon: Users, label: 'Progresso' }, 
     { name: 'Settings', icon: Settings, label: 'Configurações' },
   ];
 
-  // --- 3. LÓGICA PARA MOSTRAR BOTÃO ADMIN ---
-  // Se for admin, insere o botão "Admin" antes do último item (Settings)
-  const displayNavItems = currentUser?.role === 'admin' 
-    ? [...navItems.slice(0, 6), { name: 'Admin', icon: ShieldCheck, label: 'Admin' }, ...navItems.slice(6)]
-    : navItems;
+  const displayNavItems = navItems;
 
   const isActive = (name) => currentPageName === name;
 
@@ -124,7 +121,6 @@ export default function Layout({ children, currentPageName }) {
               </div>
             </Link>
 
-            {/* --- 4. AQUI USAMOS displayNavItems NO MENU DESKTOP --- */}
             <div className="hidden md:flex items-center gap-1">
               {displayNavItems.map((item) => (
                 <Link key={item.name} to={createPageUrl(item.name)}>
@@ -157,7 +153,6 @@ export default function Layout({ children, currentPageName }) {
 
         {mobileMenuOpen && (
           <div className="md:hidden bg-white/95 backdrop-blur-lg border-t border-red-100">
-            {/* --- 4. AQUI USAMOS displayNavItems NO MENU MOBILE --- */}
             <div className="px-4 py-3 space-y-1">
               {displayNavItems.map((item) => (
                 <Link 
