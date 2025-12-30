@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { 
   Home, LayoutDashboard, Target, Trophy, Calendar, Settings, Menu, X, TreePine, Volume2, VolumeX,
-  camera, Image, Users // Troquei o ícone ShieldCheck por Users ou Image se preferir, ou mantenha
+  Camera, Image, Users
 } from 'lucide-react';
 import SnowEffect from '@/components/christmas/SnowEffect';
 import ChristmasLights from '@/components/christmas/ChristmasLights';
