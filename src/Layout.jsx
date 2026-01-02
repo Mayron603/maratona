@@ -1,136 +1,78 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { 
-  Home, LayoutDashboard, Target, Trophy, Calendar, Settings, Menu, X, TreePine, Volume2, VolumeX,
-  Camera, Image, Users
+  Home, Trophy, Settings, Menu, X, 
+  Users, Calendar as CalendarIcon 
 } from 'lucide-react';
-import SnowEffect from '@/components/christmas/SnowEffect';
-import ChristmasLights from '@/components/christmas/ChristmasLights';
+// Ícone mantido
+import iconeImg from '@/assets/icone.png';
 
 export default function Layout({ children, currentPageName }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const location = useLocation();
-  const audioRef = useRef(null);
 
-  const [snowEnabled, setSnowEnabled] = useState(true);
-  const [lightsEnabled, setLightsEnabled] = useState(true);
-  const [musicEnabled, setMusicEnabled] = useState(false);
-  const [musicVolume, setMusicVolume] = useState(0.5);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const isHome = currentPageName === 'Home';
 
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: async () => {
-      const result = await base44.entities.Settings.list();
-      return result[0] || {};
-    },
-  });
-
-  const { data: currentUser } = useQuery({
-    queryKey: ['current-user'],
-    queryFn: () => base44.auth.me(),
-  });
-
-  useEffect(() => {
-    if (settings) {
-      setSnowEnabled(settings.snow_enabled ?? true);
-      setLightsEnabled(settings.lights_enabled ?? true);
-      setMusicEnabled(settings.music_enabled ?? false);
-      setMusicVolume(settings.music_volume ?? 0.5);
-    }
-  }, [settings]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = musicVolume;
-    }
-  }, [musicVolume]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      if (musicEnabled) {
-        audioRef.current.volume = musicVolume;
-        const playPromise = audioRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-        }
-      } else {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      }
-    }
-  }, [musicEnabled]);
-
-  // Lista base de navegação
+  // Navegação
   const navItems = [
     { name: 'Home', icon: Home, label: 'Início' },
-    { name: 'Dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { name: 'Goals', icon: Target, label: 'Metas' },
-    { name: 'Marathons', icon: Trophy, label: 'Maratonas' },
-    { name: 'Calendar', icon: Calendar, label: 'Calendário' },
-    { name: 'Ranking', icon: Trophy, label: 'Ranking' },
-    { name: 'Admin', icon: Users, label: 'Progresso' }, 
+        { name: 'Lista', icon: CalendarIcon, label: 'Lista de Convocados' },  
+    { name: 'Sprint', icon: Trophy, label: 'Sprint' }, // Nome mais genérico 
+    { name: 'Admin', icon: Users, label: 'Registro' }, 
     { name: 'Settings', icon: Settings, label: 'Configurações' },
   ];
 
   const displayNavItems = navItems;
-
   const isActive = (name) => currentPageName === name;
 
+  const getPath = (name) => {
+    if (name === 'Home') return '/';
+    return `/${name.toLowerCase()}`;
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-green-50">
-      <SnowEffect enabled={snowEnabled} />
-      <ChristmasLights enabled={lightsEnabled} />
+    // Fundo: Se for Home, Preto. Se for interno, um cinza claro elegante.
+    <div className={`min-h-screen ${isHome ? 'bg-black' : 'bg-gray-50'}`}>
       
-      <audio ref={audioRef} loop>
-        <source src="/natal.mp3" type="audio/mp3" />
-      </audio>
-
-      {musicEnabled && (
-        <button 
-          onClick={() => {
-            if (audioRef.current.paused) {
-              audioRef.current.play();
-              setIsPlaying(true);
-            } else {
-              audioRef.current.pause();
-              setIsPlaying(false);
-            }
-          }}
-          className="fixed bottom-4 left-4 z-50 bg-white/80 p-3 rounded-full shadow-lg border border-red-200 hover:scale-110 transition-transform animate-bounce"
-          title={isPlaying ? "Pausar Música" : "Tocar Música"}
-        >
-          {isPlaying ? <Volume2 className="w-5 h-5 text-green-600" /> : <VolumeX className="w-5 h-5 text-red-500" />}
-        </button>
-      )}
-
-      <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-red-100 shadow-sm">
+      {/* NAVBAR */}
+      <nav 
+        className={`top-0 z-[60] transition-all duration-300 w-full
+        ${isHome 
+          ? 'fixed bg-white/5 backdrop-blur-sm border-b border-white/10' 
+          : 'sticky bg-white border-b border-gray-200 shadow-sm'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <Link to={createPageUrl('Home')} className="flex items-center gap-2 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <TreePine className="w-6 h-6 text-white" />
+          <div className="flex items-center h-16">
+            
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-3 group mr-8">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-md p-1 group-hover:scale-110 transition-transform border border-gray-100">
+                <img src={iconeImg} alt="Ícone" className="w-full h-full object-contain" />
               </div>
               <div className="hidden sm:block">
-                <span className="font-bold text-gray-800">Missão</span>
-                <span className="text-xs text-red-600 block -mt-1">de Natal 🎄</span>
+                {/* Texto Neutro */}
+                <span className={`font-bold text-lg ${isHome ? 'text-white' : 'text-gray-800'}`}>
+                  Hogwarts Maratona
+                </span>
               </div>
             </Link>
 
+            {/* Menu Desktop */}
             <div className="hidden md:flex items-center gap-1">
               {displayNavItems.map((item) => (
-                <Link key={item.name} to={createPageUrl(item.name)}>
+                <Link key={item.name} to={getPath(item.name)}>
                   <Button
                     variant={isActive(item.name) ? "default" : "ghost"}
                     size="sm"
                     className={`gap-2 ${
                       isActive(item.name) 
-                        ? 'bg-red-600 text-white hover:bg-red-700' 
-                        : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
+                        // Ativo: Amarelo/Dourado escuro (estilo Hogwarts) ou Preto
+                        ? 'bg-yellow-600 text-white hover:bg-yellow-700' 
+                        : isHome 
+                          ? 'text-white/80 hover:text-white hover:bg-white/10' 
+                          : 'text-gray-600 hover:text-yellow-600 hover:bg-yellow-50'
                     }`}
                   >
                     <item.icon className="w-4 h-4" />
@@ -140,10 +82,11 @@ export default function Layout({ children, currentPageName }) {
               ))}
             </div>
 
+            {/* Botão Mobile */}
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className={`md:hidden ml-auto ${isHome ? 'text-white hover:bg-white/10' : ''}`}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -151,20 +94,21 @@ export default function Layout({ children, currentPageName }) {
           </div>
         </div>
 
+        {/* Menu Mobile */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white/95 backdrop-blur-lg border-t border-red-100">
+          <div className="md:hidden bg-white border-t border-gray-100">
             <div className="px-4 py-3 space-y-1">
               {displayNavItems.map((item) => (
                 <Link 
                   key={item.name} 
-                  to={createPageUrl(item.name)}
+                  to={getPath(item.name)}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <Button
                     variant={isActive(item.name) ? "default" : "ghost"}
                     className={`w-full justify-start gap-3 ${
                       isActive(item.name) 
-                        ? 'bg-red-600 text-white' 
+                        ? 'bg-yellow-600 text-white' 
                         : 'text-gray-600'
                     }`}
                   >

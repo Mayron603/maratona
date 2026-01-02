@@ -1,208 +1,261 @@
-import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { CheckCircle2, Circle, StickyNote, Image as ImageIcon, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { History, Trophy, BookOpen, Clock, Trash2, Crown, Medal, Flame } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import progressBgVideo from '@/assets/video2.mp4';
+
+// Dados fictícios para simular competição (Rivals)
+const MOCK_RIVALS = [
+  { id: 'npc1', name: 'Hermione G.', minutes: 2400, avatar: null },
+  { id: 'npc2', name: 'Draco M.', minutes: 1200, avatar: null },
+  { id: 'npc3', name: 'Luna L.', minutes: 890, avatar: null },
+  { id: 'npc4', name: 'Neville L.', minutes: 450, avatar: null },
+];
 
 export default function AdminProgress() {
-  const [selectedUserId, setSelectedUserId] = useState(null);
-  const [selectedMarathonId, setSelectedMarathonId] = useState(null);
+  const [sprints, setSprints] = useState([]);
+  const [rankingList, setRankingList] = useState([]);
 
-  // 1. Buscas de dados
-  const { data: currentUser } = useQuery({
-    queryKey: ['current-user'],
-    queryFn: () => base44.auth.me(),
-  });
+  // Carregar dados reais
+  const loadData = () => {
+    const savedData = localStorage.getItem('sprint_history');
+    return savedData ? JSON.parse(savedData) : [];
+  };
 
-  const { data: users = [] } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => base44.users.list(),
-  });
+  useEffect(() => {
+    const data = loadData();
+    setSprints(data);
 
-  const { data: marathons = [] } = useQuery({
-    queryKey: ['marathons'],
-    queryFn: () => base44.entities.Marathon.list(),
-  });
+    // --- LÓGICA DO RANKING ---
+    // 1. Calcula SEUS minutos totais reais
+    const myTotalSeconds = data.reduce((acc, curr) => acc + (curr.seconds || 0), 0);
+    const myTotalMinutes = Math.floor(myTotalSeconds / 60);
 
-  const { data: allProgress = [] } = useQuery({
-    queryKey: ['all-progress'],
-    queryFn: () => base44.entities.Marathon.getAllProgress(),
-  });
+    // 2. Cria seu objeto de usuário
+    const meUser = { 
+      id: 'me', 
+      name: 'Você (Atual)', 
+      minutes: myTotalMinutes, 
+      isMe: true,
+      avatar: null 
+    };
 
-  // REMOVIDO: Bloco de segurança que impedia não-admins de ver a página.
-  // Agora todos os usuários logados podem visualizar o inspetor.
+    // 3. Mistura com os rivais e ordena
+    const fullRanking = [...MOCK_RIVALS, meUser].sort((a, b) => b.minutes - a.minutes);
+    setRankingList(fullRanking);
 
-  // Lógica para encontrar o progresso do usuário selecionado na maratona selecionada
-  const selectedMarathon = marathons.find(m => m.id === selectedMarathonId);
-  const userProgress = allProgress.find(p => p.userId === selectedUserId && p.marathonId === selectedMarathonId);
+    // Listener para atualizações em tempo real
+    const handleStorageChange = () => {
+       const newData = loadData();
+       setSprints(newData);
+       // Recalcular ranking (simplificado aqui)
+       const newSeconds = newData.reduce((acc, curr) => acc + (curr.seconds || 0), 0);
+       meUser.minutes = Math.floor(newSeconds / 60);
+       setRankingList([...MOCK_RIVALS, meUser].sort((a, b) => b.minutes - a.minutes));
+    };
 
-  // Função auxiliar para pegar dados da tarefa
-  const getTaskData = (taskId) => {
-    return userProgress?.tasks?.find(t => t.taskId === taskId) || {};
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  const totalProgressSeconds = sprints.reduce((acc, curr) => acc + (curr.seconds || 0), 0);
+
+  const formatShortTime = (totalSeconds) => {
+    if (!totalSeconds) return "0m";
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm("Deseja apagar este registro do grimório?")) {
+      const updated = sprints.filter(s => s.id !== id);
+      setSprints(updated);
+      localStorage.setItem('sprint_history', JSON.stringify(updated));
+      
+      // Atualiza ranking localmente rápido
+      const newSeconds = updated.reduce((acc, curr) => acc + (curr.seconds || 0), 0);
+      const newRanking = rankingList.map(u => u.isMe ? {...u, minutes: Math.floor(newSeconds/60)} : u)
+                                    .sort((a, b) => b.minutes - a.minutes);
+      setRankingList(newRanking);
+    }
+  };
+
+  // Função auxiliar para ícone do ranking
+  const getRankIcon = (index) => {
+    if (index === 0) return <Crown className="w-5 h-5 text-yellow-400 fill-yellow-400 animate-pulse" />;
+    if (index === 1) return <Medal className="w-5 h-5 text-gray-300" />;
+    if (index === 2) return <Medal className="w-5 h-5 text-amber-700" />;
+    return <span className="text-white/40 font-bold text-sm">#{index + 1}</span>;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen text-[#E2D1C3] font-serif p-4 md:p-8 flex flex-col items-center relative overflow-hidden">
+      
+      {/* --- BACKGROUND VIDEO FIXO --- */}
+      <div className="fixed inset-0 z-0">
+        <video 
+          autoPlay loop muted playsInline
+          className="w-full h-full object-cover opacity-80"
+          src={progressBgVideo}
+        />
+        {/* Camada escura degradê para leitura perfeita */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80"></div>
+        {/* Textura de poeira mágica */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/stardust.png")' }}></div>
+      </div>
+
+      <div className="w-full max-w-6xl z-10 relative space-y-12 animate-in fade-in duration-700">
         
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-            <Search className="w-8 h-8 text-blue-600" />
-            Inspetor de Progresso
+        {/* --- CABEÇALHO --- */}
+        <div className="text-center space-y-4 pt-4">
+          <h1 className="text-4xl md:text-6xl font-bold uppercase tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-[#bf953f] via-[#fcf6ba] to-[#bf953f] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] font-headline">
+            Salão dos Campeões
           </h1>
-          <p className="text-gray-500">Visualize as fotos e notas dos participantes 🕵️‍♂️</p>
+          <p className="text-[#E2D1C3]/60 italic font-serif text-lg">"A glória aguarda aqueles que persistem."</p>
         </div>
 
-        {/* --- FILTROS --- */}
-        <Card className="mb-8 bg-white border-blue-100 shadow-md">
-          <CardContent className="p-6">
-            <div className="grid md:grid-cols-2 gap-4">
-              
-              {/* Seleção de Usuário */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Participante</label>
-                <Select onValueChange={setSelectedUserId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um usuário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map(user => (
-                      <SelectItem key={user.id} value={user.id}>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-6 h-6">
-                            <AvatarImage src={user.avatar} />
-                            <AvatarFallback className="text-[10px]">{user.name?.slice(0,2)}</AvatarFallback>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* --- COLUNA ESQUERDA: RANKING GLOBAL (Novidade) --- */}
+          <div className="lg:col-span-5 space-y-6">
+             <div className="bg-black/40 backdrop-blur-md border border-[#bf953f]/30 rounded-xl overflow-hidden shadow-2xl">
+                <div className="p-4 bg-[#bf953f]/10 border-b border-[#bf953f]/20 flex items-center justify-between">
+                   <h2 className="text-[#bf953f] font-bold uppercase tracking-widest flex items-center gap-2">
+                     <Trophy className="w-4 h-4" /> Classificação Geral
+                   </h2>
+                   <Badge variant="outline" className="text-[#bf953f] border-[#bf953f]/30">Jan/2026</Badge>
+                </div>
+                
+                <div className="divide-y divide-white/5">
+                  {rankingList.map((user, index) => (
+                    <div 
+                      key={user.id} 
+                      className={`flex items-center justify-between p-4 transition-all ${
+                        user.isMe 
+                          ? 'bg-[#bf953f]/20 border-l-4 border-l-[#bf953f]' // Destaque para VOCÊ
+                          : 'hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-6 flex justify-center">
+                          {getRankIcon(index)}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Avatar className={`h-8 w-8 border ${user.isMe ? 'border-[#bf953f]' : 'border-white/20'}`}>
+                            <AvatarFallback className="bg-black text-[#E2D1C3] text-xs">
+                              {user.name.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
                           </Avatar>
-                          {user.name} ({user.email})
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Seleção de Maratona */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Maratona</label>
-                <Select onValueChange={setSelectedMarathonId} disabled={!selectedUserId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a maratona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {marathons.map(m => (
-                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* --- CONTEÚDO --- */}
-        {!selectedUserId || !selectedMarathonId ? (
-          <div className="text-center py-12 text-gray-400 border-2 border-dashed rounded-xl">
-            Selecione um usuário e uma maratona para ver os detalhes.
-          </div>
-        ) : !selectedMarathon ? (
-           <div className="text-center text-gray-500">Maratona não encontrada.</div>
-        ) : (
-          <div className="space-y-6">
-            {/* Cabeçalho do Resultado */}
-            <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-blue-800">
-                    Visualizando: {selectedMarathon.name}
-                </h2>
-                {!userProgress && (
-                    <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-sm font-medium">
-                        Este usuário ainda não iniciou esta maratona.
-                    </span>
-                )}
-            </div>
-
-            {selectedMarathon.rounds?.map((round, roundIndex) => (
-              <Card key={roundIndex} className="bg-white/90 backdrop-blur-sm border border-gray-200">
-                <CardHeader className="bg-gray-50 pb-3 border-b">
-                  <CardTitle className="text-lg text-gray-700 flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">
-                      {roundIndex + 1}
-                    </span>
-                    {round.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-3">
-                  {round.tasks?.map((task) => {
-                    const taskData = getTaskData(task.id);
-                    const isCompleted = taskData.completed;
-                    const note = taskData.note;
-                    const photo = taskData.photo;
-
-                    return (
-                      <div key={task.id} className={`p-3 rounded-xl border flex gap-3 ${isCompleted ? 'bg-green-50/50 border-green-100' : 'bg-white border-gray-100'}`}>
-                        {/* Status Icon */}
-                        <div className="pt-1">
-                          {isCompleted ? (
-                            <CheckCircle2 className="w-5 h-5 text-green-500" />
-                          ) : (
-                            <Circle className="w-5 h-5 text-gray-300" />
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-medium ${isCompleted ? 'text-gray-800' : 'text-gray-500'}`}>
-                            {task.text}
-                          </p>
-                          
-                          {/* Exibição de Nota e Foto */}
-                          {(note || photo) && (
-                            <div className="mt-3 flex flex-wrap gap-4 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
-                              
-                              {/* Nota */}
-                              {note && (
-                                <div className="flex-1 min-w-[200px]">
-                                    <p className="text-xs text-gray-400 flex items-center gap-1 mb-1">
-                                        <StickyNote className="w-3 h-3" /> Nota do usuário:
-                                    </p>
-                                    <p className="text-sm text-gray-700 italic">"{note}"</p>
-                                </div>
-                              )}
-
-                              {/* Foto */}
-                              {photo && (
-                                <div>
-                                    <p className="text-xs text-gray-400 flex items-center gap-1 mb-1">
-                                        <ImageIcon className="w-3 h-3" /> Foto enviada:
-                                    </p>
-                                    <Dialog>
-                                        <DialogTrigger>
-                                            <img 
-                                                src={photo} 
-                                                alt="Prova" 
-                                                className="w-20 h-20 rounded-lg object-cover border border-gray-200 hover:scale-105 transition-transform cursor-pointer" 
-                                            />
-                                        </DialogTrigger>
-                                        <DialogContent className="max-w-4xl bg-transparent border-0 shadow-none p-0 flex items-center justify-center">
-                                            <img src={photo} alt="Prova Full" className="max-h-[85vh] rounded-md shadow-2xl" />
-                                        </DialogContent>
-                                    </Dialog>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          <span className={`text-sm ${user.isMe ? 'font-bold text-white' : 'text-[#E2D1C3]/80'}`}>
+                            {user.name}
+                          </span>
                         </div>
                       </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            ))}
+                      <div className="text-right">
+                         <span className="block font-mono font-bold text-[#E2D1C3]">
+                           {Math.floor(user.minutes / 60)}h {user.minutes % 60}m
+                         </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+             </div>
+
+             {/* STATS RÁPIDOS */}
+             <div className="grid grid-cols-2 gap-4">
+                <Card className="bg-black/40 backdrop-blur border border-white/10">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs uppercase tracking-widest text-[#E2D1C3]/50 mb-1">Seu Tempo</p>
+                    <p className="text-2xl font-mono font-bold text-[#bf953f]">{formatShortTime(totalProgressSeconds)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-black/40 backdrop-blur border border-white/10">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs uppercase tracking-widest text-[#E2D1C3]/50 mb-1">Sessões</p>
+                    <p className="text-2xl font-mono font-bold text-[#bf953f]">{sprints.length}</p>
+                  </CardContent>
+                </Card>
+             </div>
           </div>
-        )}
+
+          {/* --- COLUNA DIREITA: SEU HISTÓRICO (O Grimório) --- */}
+          <div className="lg:col-span-7 space-y-4">
+             <div className="flex items-center justify-between mb-2">
+               <h3 className="text-[#E2D1C3] font-bold uppercase tracking-widest flex items-center gap-2 text-sm">
+                 <History className="w-4 h-4 text-[#bf953f]" /> Seu Grimório Pessoal
+               </h3>
+               <span className="text-xs text-[#E2D1C3]/40 italic">Últimos registros</span>
+             </div>
+
+             <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
+                {sprints.length === 0 ? (
+                  <div className="p-8 border border-dashed border-white/20 rounded-xl text-center text-white/30 italic">
+                    Nenhum feitiço de tempo lançado ainda...
+                  </div>
+                ) : (
+                  sprints.map((sprint) => (
+                    <div 
+                      key={sprint.id} 
+                      className="group relative bg-black/40 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-[#bf953f]/40 hover:bg-black/60 transition-all duration-300"
+                    >
+                      <div className="flex justify-between items-start md:items-center gap-4">
+                         
+                         {/* Info Principal */}
+                         <div className="flex items-start gap-4">
+                            <div className="bg-[#bf953f]/10 p-2.5 rounded-lg border border-[#bf953f]/20">
+                              <BookOpen className="w-5 h-5 text-[#bf953f]" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-[#E2D1C3] group-hover:text-white transition-colors">
+                                {sprint.notes}
+                              </h4>
+                              <div className="flex items-center gap-3 text-xs text-[#E2D1C3]/50 mt-1">
+                                <span>{new Date(sprint.date + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                                <span>•</span>
+                                <span>{sprint.startTime} - {sprint.endTime}</span>
+                              </div>
+                            </div>
+                         </div>
+
+                         {/* Tempo e Ações */}
+                         <div className="flex items-center gap-4">
+                            <Badge variant="secondary" className="bg-[#bf953f]/10 text-[#bf953f] border border-[#bf953f]/20 font-mono text-sm px-3 py-1">
+                              {sprint.totalDuration}
+                            </Badge>
+                            
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              onClick={() => handleDelete(sprint.id)}
+                              className="h-8 w-8 text-white/20 hover:text-red-400 hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                         </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+             </div>
+          </div>
+
+        </div>
       </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+        .font-headline { font-family: 'Cinzel', serif; }
+        .font-serif { font-family: 'Cormorant Garamond', serif; }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(191, 149, 63, 0.3); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(191, 149, 63, 0.6); }
+      `}</style>
     </div>
   );
 }

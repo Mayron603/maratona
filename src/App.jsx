@@ -10,8 +10,8 @@ import Dashboard from './pages/Dashboard';
 import Goals from './pages/Goals';
 import Marathons from './pages/Marathons';
 import MarathonDetail from './pages/MarathonDetail';
-import Calendar from './pages/Calendar';
-import Ranking from './pages/Ranking';
+import Cronometro from './pages/Lista'; // Era Calendar
+import Sprint from './pages/Sprint';         // Era Ranking
 import Settings from './pages/Settings';
 import AdminProgress from './pages/AdminProgress'; // <--- Importe aqui
 
@@ -68,15 +68,17 @@ function App() {
             </ProtectedRoute>
           } />
           
-          <Route path="/calendar" element={
+            <Route path="/lista" element={
             <ProtectedRoute>
-              <Layout currentPageName="Calendar"><Calendar /></Layout>
+              {/* Note que o currentPageName mudou para 'Cronometro' */}
+              <Layout currentPageName="Lista"><Cronometro /></Layout>
             </ProtectedRoute>
           } />
           
-          <Route path="/ranking" element={
+            <Route path="/sprint" element={
             <ProtectedRoute>
-              <Layout currentPageName="Ranking"><Ranking /></Layout>
+              {/* Note que o currentPageName mudou para 'Sprint' */}
+              <Layout currentPageName="Sprint"><Sprint /></Layout>
             </ProtectedRoute>
           } />
 

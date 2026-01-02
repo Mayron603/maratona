@@ -68,13 +68,11 @@ export const base44 = {
       
       getProgress: async (marathonId) => fetchAPI(`/marathons/${marathonId}/progress`),
       
-      // --- ATUALIZADO AQUI ---
       updateTask: async (marathonId, taskId, completed, note, photo) => 
         fetchAPI(`/marathons/${marathonId}/task`, { 
           method: 'POST', 
           body: JSON.stringify({ taskId, completed, note, photo }) 
         }),
-      // -----------------------
         
       filter: async (criteria) => {
         const all = normalize(await fetchAPI('/marathons'));
@@ -82,6 +80,13 @@ export const base44 = {
         return all;
       }
     },
+    // --- NOVO: Adicione isso para salvar os Sprints no Banco ---
+    Sprint: {
+        create: async (data) => normalize(await fetchAPI('/sprints', { method: 'POST', body: JSON.stringify(data) })),
+        list: async () => normalize(await fetchAPI('/sprints')), // Pega o histórico do usuário logado
+        delete: async (id) => fetchAPI(`/sprints/${id}`, { method: 'DELETE' }),
+    },
+    // ----------------------------------------------------------
     Settings: {
       list: async () => normalize(await fetchAPI('/settings')),
       create: async (data) => fetchAPI('/settings', { method: 'POST', body: JSON.stringify(data) }),

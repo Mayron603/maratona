@@ -1,348 +1,174 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Slider } from "@/components/ui/slider"; 
-import { 
-  Settings as SettingsIcon, 
-  Snowflake, 
-  Music, 
-  Lightbulb, 
-  Palette, 
-  RefreshCw, 
-  Sparkles,
-  AlertTriangle,
-  Check,
-  User,
-  Mail,
-  LogOut,
-  Volume2,
-  Camera, 
-  Loader2
-} from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User, Mail, Camera, Save, Sparkles, LogOut, Upload } from 'lucide-react';
 
 export default function Settings() {
-  const queryClient = useQueryClient();
-  const [saved, setSaved] = useState(false);
+  const [user, setUser] = useState({ name: '', email: '', avatar: '' });
+  const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
-  const [compressing, setCompressing] = useState(false); // Estado para mostrar que está comprimindo
-
-  const { data: currentUser } = useQuery({
-    queryKey: ['current-user'],
-    queryFn: () => base44.auth.me(),
-  });
-
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: async () => {
-      const result = await base44.entities.Settings.list();
-      return result[0] || { snow_enabled: true, music_enabled: false, music_volume: 0.5, lights_enabled: true, theme: 'vermelho' };
-    },
-  });
-
-  const [localSettings, setLocalSettings] = useState({
-    snow_enabled: true,
-    music_enabled: false,
-    music_volume: 0.5,
-    lights_enabled: true,
-    theme: 'vermelho'
-  });
 
   useEffect(() => {
-    if (settings) {
-      setLocalSettings({
-        ...settings,
-        music_volume: settings.music_volume ?? 0.5
-      });
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      const data = await base44.auth.me();
+      if (data) setUser(data);
+    } catch (error) {
+      console.error("Erro ao carregar perfil", error);
     }
-  }, [settings]);
+  };
 
-  const saveMutation = useMutation({
-    mutationFn: async (data) => {
-      const existing = await base44.entities.Settings.list();
-      if (existing.length > 0 && existing[0].id) {
-        return base44.entities.Settings.update(existing[0].id, data);
-      } else {
-        return base44.entities.Settings.create(data);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    },
-    onError: (error) => {
-      console.error("Erro ao salvar:", error);
-      alert("Erro ao salvar: " + error.message);
-    }
-  });
-
-  const profileMutation = useMutation({
-    mutationFn: (data) => base44.auth.updateProfile(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['current-user'] });
-      alert("Foto de perfil atualizada!");
-    },
-    onError: (error) => {
-        console.error(error);
-        alert("Erro ao enviar foto: " + error.message);
-    }
-  });
-
-  const resetMutation = useMutation({
-    mutationFn: async () => {
-      const goals = await base44.entities.Goal.list();
-      const marathons = await base44.entities.Marathon.list();
-      for (const goal of goals) await base44.entities.Goal.delete(goal.id);
-      for (const marathon of marathons) await base44.entities.Marathon.delete(marathon.id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries();
-      alert('Progresso resetado com sucesso!');
-    },
-  });
-
-  // --- NOVA LÓGICA DE COMPRESSÃO ---
+  // --- MÁGICA DE CONVERTER IMAGEM PARA TEXTO (BASE64) ---
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-
-    // Se for maior que 10MB, avisa antes
-    if (file.size > 10 * 1024 * 1024) {
-        alert("Imagem muito grande! Escolha uma menor que 10MB.");
-        return;
-    }
-
-    setCompressing(true);
-
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = () => {
-        // Cria um canvas para redimensionar
-        const canvas = document.createElement('canvas');
-        
-        // Define um tamanho máximo (ex: 400px) - Suficiente para avatar
-        const MAX_WIDTH = 400;
-        const MAX_HEIGHT = 400;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Converte para JPEG com qualidade 0.7 (reduz muito o tamanho!)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        
-        // Envia para o servidor
-        profileMutation.mutate({ avatar: dataUrl });
-        setCompressing(false);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // O resultado é uma string longa que representa a imagem
+        setUser(prev => ({ ...prev, avatar: reader.result }));
       };
-    };
-  };
-  // ---------------------------------
-
-  const handleReset = () => {
-    if (confirm('Tem certeza que deseja resetar todo o progresso? Esta ação não pode ser desfeita!')) {
-      resetMutation.mutate();
+      reader.readAsDataURL(file);
     }
   };
 
-  const themes = [
-    { value: 'vermelho', label: 'Vermelho Natalino', color: 'bg-red-500' },
-    { value: 'verde', label: 'Verde Pinheiro', color: 'bg-green-600' },
-    { value: 'dourado', label: 'Dourado Festivo', color: 'bg-yellow-500' }
-  ];
+  const triggerFileInput = () => {
+    fileInputRef.current.click();
+  };
+  // -----------------------------------------------------
+
+  const handleUpdate = async () => {
+    setLoading(true);
+    try {
+      await base44.auth.updateProfile(user);
+      alert("✨ Perfil e Foto atualizados com sucesso!");
+    } catch (error) {
+      alert("Erro ao atualizar perfil. A imagem pode ser muito grande (máx 10MB).");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    base44.auth.logout();
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-green-50 p-4 md:p-8">
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 flex items-center gap-3">
-            <SettingsIcon className="w-8 h-8 text-gray-600" />
-            Configurações
+    <div className="min-h-screen bg-[#0a0500] text-[#E2D1C3] font-serif p-6 flex justify-center items-center relative overflow-hidden">
+      
+      {/* Fundo Atmosférico */}
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,_#3E2723_0%,_#1a0f0a_60%,_#000000_100%)] opacity-80 pointer-events-none"></div>
+      <div className="fixed inset-0 opacity-20 pointer-events-none mix-blend-screen" 
+           style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/stardust.png")' }}></div>
+
+      <div className="w-full max-w-2xl relative z-10 animate-in fade-in zoom-in duration-700">
+        
+        <div className="text-center mb-8 space-y-2">
+          <h1 className="text-4xl md:text-5xl font-bold font-headline uppercase tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-[#bf953f] via-[#fcf6ba] to-[#bf953f] drop-shadow-md">
+            Configurações do Mago
           </h1>
-          <p className="text-gray-500 mt-1">Personalize sua experiência natalina ⚙️</p>
+          <p className="text-[#bf953f]/60 italic">"Personalize sua identidade no castelo."</p>
         </div>
 
-        {saved && (
-          <Alert className="mb-6 bg-green-50 border-green-200">
-            <Check className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">Salvo!</AlertTitle>
-            <AlertDescription className="text-green-700">
-              Suas configurações foram salvas com sucesso.
-            </AlertDescription>
-          </Alert>
-        )}
+        <Card className="bg-black/40 backdrop-blur-md border border-[#bf953f]/30 shadow-2xl">
+          <CardHeader className="border-b border-[#bf953f]/10 pb-6">
+            <div className="flex flex-col items-center gap-4">
+              
+              {/* ÁREA DO AVATAR CLICÁVEL */}
+              <div className="relative group cursor-pointer" onClick={triggerFileInput}>
+                <div className="absolute inset-0 bg-[#bf953f] rounded-full blur-md opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                
+                <Avatar className="w-32 h-32 border-2 border-[#bf953f] shadow-xl transition-transform group-hover:scale-105">
+                  <AvatarImage src={user.avatar} className="object-cover" />
+                  <AvatarFallback className="bg-[#1a0f0a] text-[#bf953f] text-3xl font-headline">
+                    {user.name?.slice(0,2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
 
-        <div className="space-y-6">
-          <Card className="bg-white/90 backdrop-blur-sm border-2 border-blue-100 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-blue-700">
-                <User className="w-5 h-5" /> Minha Conta
-              </CardTitle>
-              <CardDescription>Informações do seu perfil</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {currentUser ? (
-                <div className="flex items-center gap-6">
-                  <div className="relative group">
-                    <Avatar className="w-24 h-24 border-4 border-blue-100 shadow-lg">
-                      <AvatarImage src={currentUser.avatar} />
-                      <AvatarFallback className="bg-blue-600 text-white text-3xl font-bold">
-                        {currentUser.full_name?.slice(0, 2).toUpperCase() || currentUser.email?.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <button 
-                      onClick={() => fileInputRef.current.click()}
-                      className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
-                      disabled={profileMutation.isPending || compressing}
-                    >
-                      {profileMutation.isPending || compressing ? <Loader2 className="w-4 h-4 animate-spin text-blue-600" /> : <Camera className="w-4 h-4 text-blue-600" />}
-                    </button>
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                    />
-                  </div>
-
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-800 text-xl">{currentUser.full_name || 'Usuário'}</h3>
-                    <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
-                      <Mail className="w-4 h-4" /> {currentUser.email}
-                    </div>
-                    <div className="mt-2">
-                      <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                        currentUser.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'
-                      }`}>
-                        {currentUser.role === 'admin' ? '👑 Administrador' : '🎄 Participante'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => base44.auth.logout()}>
-                    <LogOut className="w-4 h-4 mr-2" /> Sair
-                  </Button>
+                {/* Overlay de Câmera ao passar o mouse */}
+                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-8 h-8 text-white" />
                 </div>
-              ) : <div className="text-center text-gray-500">Carregando informações...</div>}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/90 backdrop-blur-sm border-2 border-red-100 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-red-700">
-                <Sparkles className="w-5 h-5" /> Modo Festivo
-              </CardTitle>
-              <CardDescription>Controle os efeitos visuais natalinos</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-blue-100"><Snowflake className="w-5 h-5 text-blue-600" /></div>
-                  <div><Label htmlFor="snow" className="font-medium">Neve Caindo</Label></div>
+                
+                {/* Ícone de upload fixo */}
+                <div className="absolute bottom-1 right-1 bg-[#bf953f] text-black rounded-full p-2 shadow-lg hover:bg-[#d4a74c] transition-colors">
+                  <Upload size={14} />
                 </div>
-                <Switch id="snow" checked={localSettings.snow_enabled} onCheckedChange={(c) => setLocalSettings({ ...localSettings, snow_enabled: c })} />
               </div>
+              
+              {/* Input de arquivo escondido */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImageUpload} 
+                accept="image/*" 
+                className="hidden" 
+              />
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-yellow-100"><Lightbulb className="w-5 h-5 text-yellow-600" /></div>
-                  <div><Label htmlFor="lights" className="font-medium">Luzes Piscando</Label></div>
-                </div>
-                <Switch id="lights" checked={localSettings.lights_enabled} onCheckedChange={(c) => setLocalSettings({ ...localSettings, lights_enabled: c })} />
+              <div className="text-center">
+                <p className="text-lg font-bold text-[#E2D1C3]">{user.name || 'Feiticeiro Anônimo'}</p>
+                <p className="text-sm text-[#E2D1C3]/50">{user.email}</p>
               </div>
+            </div>
+          </CardHeader>
 
-              <div className="space-y-4 pt-2 border-t border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-purple-100"><Music className="w-5 h-5 text-purple-600" /></div>
-                    <div>
-                      <Label htmlFor="music" className="font-medium">Música Natalina</Label>
-                      <p className="text-sm text-gray-500">Música ambiente suave</p>
-                    </div>
-                  </div>
-                  <Switch id="music" checked={localSettings.music_enabled} onCheckedChange={(c) => setLocalSettings({ ...localSettings, music_enabled: c })} />
-                </div>
+          <CardContent className="space-y-6 pt-6">
+            
+            {/* Input Nome */}
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-widest text-[#bf953f] font-bold flex items-center gap-2">
+                <User size={14} /> Nome de Bruxo
+              </label>
+              <Input 
+                value={user.name} 
+                onChange={(e) => setUser({...user, name: e.target.value})}
+                className="bg-white/5 border-[#bf953f]/20 text-[#E2D1C3] h-12 focus:border-[#bf953f] focus:ring-[#bf953f]/20 font-serif text-lg"
+              />
+            </div>
 
-                {localSettings.music_enabled && (
-                  <div className="pl-12 pr-2 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center gap-4">
-                      <Volume2 className="w-4 h-4 text-gray-400" />
-                      <Slider 
-                        defaultValue={[localSettings.music_volume * 100]} 
-                        max={100} 
-                        step={1} 
-                        onValueChange={(val) => setLocalSettings({ ...localSettings, music_volume: val[0] / 100 })}
-                      />
-                      <span className="text-xs font-bold text-gray-500 w-8 text-right">
-                        {Math.round(localSettings.music_volume * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            {/* Input Email */}
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-widest text-[#bf953f] font-bold flex items-center gap-2">
+                <Mail size={14} /> Email Mágico
+              </label>
+              <Input 
+                value={user.email} 
+                onChange={(e) => setUser({...user, email: e.target.value})}
+                className="bg-white/5 border-[#bf953f]/20 text-[#E2D1C3] h-12 focus:border-[#bf953f] font-serif text-lg"
+              />
+            </div>
 
-          <Card className="bg-white/90 backdrop-blur-sm border-2 border-green-100 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-green-700">
-                <Palette className="w-5 h-5" /> Tema de Cores
-              </CardTitle>
-              <CardDescription>Escolha o tema principal do site</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RadioGroup value={localSettings.theme} onValueChange={(v) => setLocalSettings({ ...localSettings, theme: v })} className="grid grid-cols-3 gap-4">
-                {themes.map((theme) => (
-                  <Label key={theme.value} htmlFor={theme.value} className={`flex flex-col items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${localSettings.theme === theme.value ? 'border-gray-400 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <RadioGroupItem value={theme.value} id={theme.value} className="sr-only" />
-                    <div className={`w-10 h-10 rounded-full ${theme.color} mb-2 shadow-lg`} />
-                    <span className="text-sm font-medium text-gray-700">{theme.label}</span>
-                  </Label>
-                ))}
-              </RadioGroup>
-            </CardContent>
-          </Card>
+            <div className="pt-4 flex gap-4">
+              <Button 
+                onClick={handleUpdate} 
+                disabled={loading}
+                className="flex-1 bg-gradient-to-r from-[#bf953f] to-[#8c6b2d] hover:from-[#d4a74c] hover:to-[#a67f36] text-black font-bold uppercase tracking-widest h-12 shadow-[0_0_15px_rgba(191,149,63,0.3)] transition-all hover:scale-[1.02]"
+              >
+                {loading ? <Sparkles className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4 mr-2" /> Salvar Alterações</>}
+              </Button>
 
-          <Card className="bg-white/90 backdrop-blur-sm border-2 border-orange-100 shadow-xl">
-            <CardHeader><CardTitle className="text-lg flex items-center gap-2 text-orange-700"><RefreshCw className="w-5 h-5" /> Resetar Progresso</CardTitle></CardHeader>
-            <CardContent>
-              <Alert className="bg-orange-50 border-orange-200 mb-4"><AlertTriangle className="h-4 w-4 text-orange-600" /><AlertTitle className="text-orange-800">Atenção!</AlertTitle><AlertDescription className="text-orange-700">Esta ação apaga tudo. Não pode ser desfeita.</AlertDescription></Alert>
-              <Button variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-50" onClick={handleReset} disabled={resetMutation.isPending}>{resetMutation.isPending ? 'Resetando...' : 'Resetar Tudo'}</Button>
-            </CardContent>
-          </Card>
+              <Button 
+                variant="outline"
+                onClick={handleLogout} 
+                className="border-red-900/30 text-red-400 hover:bg-red-950/30 hover:text-red-300 uppercase tracking-widest h-12 px-6"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
 
-          <div className="flex justify-end">
-            <Button onClick={() => saveMutation.mutate(localSettings)} disabled={saveMutation.isPending} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 px-8">{saveMutation.isPending ? 'Salvando...' : 'Salvar Configurações'}</Button>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
+        .font-headline { font-family: 'Cinzel', serif; }
+      `}</style>
     </div>
   );
 }
