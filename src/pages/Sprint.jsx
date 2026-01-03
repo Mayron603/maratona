@@ -5,7 +5,6 @@ import { Play, Pause, Square, Hourglass, PenTool } from 'lucide-react';
 // Mantendo suas importações
 import cronometroImg from '@/assets/cronometro.png';
 import cronometroVideo from '@/assets/cronometro.mp4';
-import ambientAudio from '@/assets/lofi.mp3';
 
 export default function Sprint() {
   // --- Estados de Configuração ---
